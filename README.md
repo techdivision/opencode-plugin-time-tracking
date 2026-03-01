@@ -52,6 +52,13 @@ npx opencode-link shell-env
 npx opencode-link time-tracking
 ```
 
+When linking `time-tracking`, a postlink hook automatically:
+
+1. Creates `~/time_tracking/` with subdirectories (`bookings/`, `charts/`, `reports/`)
+2. Symlinks `.opencode/time_tracking` → `~/time_tracking`
+
+This ensures time tracking data is stored globally in your home directory and shared across projects. If `~/time_tracking/` already exists, the hook only creates missing subdirectories. If `.opencode/time_tracking` is a real directory (not a symlink), it is left untouched.
+
 ## Configuration
 
 ### 1. Project Configuration
