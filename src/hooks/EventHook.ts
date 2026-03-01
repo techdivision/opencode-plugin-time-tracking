@@ -231,7 +231,7 @@ export function createEventHook(
           tokenUsage: session.tokenUsage,
           cost: session.cost,
           model: modelString,
-          agent: agentString,
+          agent: resolved.primaryAgent ?? agentString,
         })
 
         const minutes = Math.round(durationSeconds / 60)

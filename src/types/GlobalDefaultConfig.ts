@@ -14,7 +14,7 @@ export interface GlobalDefaultConfig {
    * Global default JIRA Issue Key.
    *
    * @remarks
-   * Must match pattern `^[A-Z][A-Z0-9]+-[0-9]+$` (e.g., "PROJ-MISC-001")
+   * Must match pattern `^[A-Z][A-Z0-9]+-[0-9]+$` (e.g., "PROJ-100")
    */
   issue_key: string
 

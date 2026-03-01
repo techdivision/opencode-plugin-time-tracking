@@ -39,7 +39,7 @@ Add to your `.opencode/package.json`:
 {
   "dependencies": {
     "@techdivision/opencode-plugin-shell-env": "^1.1.1",
-    "@techdivision/opencode-plugin-time-tracking": "^0.1.0"
+    "@techdivision/opencode-plugin-time-tracking": "^1.0.0"
   }
 }
 ```
@@ -51,6 +51,376 @@ cd .opencode && npm install
 npx opencode-link shell-env
 npx opencode-link time-tracking
 ```
+
+## Configuration
+
+### 1. Project Configuration
+
+Add the `time_tracking` section to your `.opencode/opencode-project.json`:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/techdivision/opencode-plugins/main/schemas/opencode-project.json",
+  "time_tracking": {
+    "csv_file": "~/time_tracking/time-tracking.csv",
+    "global_default": {
+      "issue_key": "PROJ-100",
+      "account_key": "YOUR_ACCOUNT_KEY"
+    }
+  }
+}
+```
+
+### 2. User Email (Environment Variable)
+
+Set your user email via the `OPENCODE_USER_EMAIL` environment variable.
+
+Add to your `.opencode/.env` file (loaded automatically by `opencode-plugin-shell-env`):
+
+```env
+OPENCODE_USER_EMAIL=your@email.com
+```
+
+Or export in your shell:
+
+```bash
+export OPENCODE_USER_EMAIL=your@email.com
+```
+
+If not set, the system username is used as fallback.
+
+## Configuration Options
+
+### Required Fields
+
+| Field | Description |
+|-------|-------------|
+| `csv_file` | Path to the CSV output file (supports `~/`, absolute, or relative paths) |
+| `global_default.issue_key` | Default JIRA issue key when no ticket found in context |
+| `global_default.account_key` | Default Tempo account key for time entries |
+
+### Optional Fields
+
+#### Agent-specific Defaults
+
+Override default ticket/account for specific agents:
+
+```json
+{
+  "time_tracking": {
+    "csv_file": "...",
+    "global_default": {
+      "issue_key": "PROJ-100",
+      "account_key": "TD_GENERAL"
+    },
+    "agent_defaults": {
+      "@developer": {
+        "issue_key": "PROJ-101",
+        "account_key": "TD_DEVELOPMENT"
+      },
+      "@reviewer": {
+        "issue_key": "PROJ-102"
+      }
+    }
+  }
+}
+```
+
+#### Agent Grouping (Subagents)
+
+Group multiple subagents under a primary agent to avoid repeating the same configuration. Subagents inherit the primary agent's `issue_key` and `account_key` as fallback, and the **primary agent name** is recorded in the CSV instead of the subagent name.
+
+```json
+{
+  "time_tracking": {
+    "csv_file": "...",
+    "global_default": {
+      "issue_key": "PROJ-100",
+      "account_key": "TD_GENERAL"
+    },
+    "agent_defaults": {
+      "@implementation": {
+        "issue_key": "PROJ-101",
+        "account_key": "TD_DEVELOPMENT",
+        "subagents": ["@developer", "@reviewer", "@tester"]
+      },
+      "@coordination": {
+        "issue_key": "PROJ-104",
+        "account_key": "TD_MANAGEMENT",
+        "subagents": ["@plan", "@build"]
+      }
+    }
+  }
+}
+```
+
+**Behavior:**
+- When `@developer` runs, the CSV records `@implementation` as the agent
+- Ticket and account key are resolved from `@implementation`'s config
+- A subagent with its own direct entry uses that entry for ticket/account resolution, but the CSV still shows the primary agent name
+
+**Override example:** If `@developer` needs a different ticket but should still be grouped under `@implementation`:
+
+```json
+{
+  "agent_defaults": {
+    "@implementation": {
+      "issue_key": "PROJ-101",
+      "account_key": "TD_DEVELOPMENT",
+      "subagents": ["@developer", "@reviewer", "@tester"]
+    },
+    "@developer": {
+      "issue_key": "PROJ-199"
+    }
+  }
+}
+```
+
+In this case, `@developer` uses `PROJ-199` as ticket (own entry takes priority) but the CSV still records `@implementation` as agent name.
+
+#### Ignored Agents
+
+Skip time tracking for specific agents:
+
+```json
+{
+  "time_tracking": {
+    "csv_file": "...",
+    "global_default": { "..." : "..." },
+    "ignored_agents": ["@internal", "@notrack"]
+  }
+}
+```
+
+#### Project Whitelist
+
+Restrict ticket detection to specific JIRA projects:
+
+```json
+{
+  "time_tracking": {
+    "csv_file": "...",
+    "global_default": { "..." : "..." },
+    "valid_projects": ["PROJ", "SOSO", "FEAT"]
+  }
+}
+```
+
+### Full Example
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/techdivision/opencode-plugins/main/schemas/opencode-project.json",
+  "time_tracking": {
+    "csv_file": "~/time_tracking/time-tracking.csv",
+    "global_default": {
+      "issue_key": "PROJ-100",
+      "account_key": "TD_GENERAL"
+    },
+    "agent_defaults": {
+      "@implementation": {
+        "issue_key": "PROJ-101",
+        "account_key": "TD_DEVELOPMENT",
+        "subagents": ["@developer", "@reviewer", "@tester"]
+      },
+      "@coordination": {
+        "issue_key": "PROJ-104",
+        "account_key": "TD_MANAGEMENT",
+        "subagents": ["@plan", "@build"]
+      }
+    },
+    "ignored_agents": ["@time-tracking"],
+    "valid_projects": ["PROJ", "SOSO"]
+  }
+}
+```
+
+## Ticket Detection
+
+### Pattern
+
+By default, tickets must have at least 2 uppercase letters followed by a number:
+- Matches: `PROJ-123`, `SOSO-1`, `AB-99`
+- Does not match: `V-1`, `X-9` (single letter), `UTF-8` (common false positive)
+
+### Project Whitelist
+
+When `valid_projects` is configured, only tickets from those projects are recognized:
+
+With whitelist:
+- Matches: `PROJ-123`, `SOSO-1`, `FEAT-99`
+- Does not match: `UTF-8`, `ISO-9001`, `OTHER-123`
+
+Without whitelist (default):
+- Matches any pattern with 2+ uppercase letters: `PROJ-123`, `AB-1`
+- Does not match single-letter prefixes: `V-1`, `X-99`
+
+## Fallback Hierarchy
+
+### Ticket Resolution
+
+1. Context ticket (from messages/todos)
+2. Direct agent-specific `issue_key` (if agent has its own entry)
+3. Primary agent's `issue_key` (if agent is listed in a `subagents` array)
+4. `global_default.issue_key`
+
+### Account Key Resolution
+
+1. Direct agent-specific `account_key` (if agent has its own entry)
+2. Primary agent's `account_key` (if agent is listed in a `subagents` array)
+3. `global_default.account_key`
+
+### CSV Agent Name
+
+1. Primary agent name (if agent is listed in a `subagents` array)
+2. Actual agent name (if no subagent mapping exists)
+
+## How It Works
+
+- Tracks tool executions during each session turn
+- Extracts JIRA ticket from user messages or todos
+- Writes CSV entry when session becomes idle
+- Shows toast notification with tracked time
+
+## CSV Format
+
+```
+id,start_date,end_date,user,ticket_name,issue_key,account_key,start_time,end_time,duration_seconds,tokens_used,tokens_remaining,story_points,description,notes
+```
+
+## Sync Features
+
+The plugin provides several sync commands to export time tracking data to external systems.
+
+### Commands Overview
+
+| Command | Description | Agent |
+|---------|-------------|-------|
+| `/time-tracking.booking-proposal` | Generate daily booking proposal from tracked time | `booking-proposal` |
+| `/time-tracking.sync-drive` | Upload CSV to Google Drive | `drive-sync` |
+| `/time-tracking.sync-calendar` | Sync booking proposals to Google Calendar | `calendar-sync` |
+| `/time-tracking.sync-tempo` | Sync booking proposals to JIRA Tempo worklogs | `tempo-sync` |
+| `/time-tracking.sync-worklogs` | Prepare time entries + calendar events for worklog sync | (inline) |
+
+### Typical Workflow
+
+```
+1. /time-tracking.booking-proposal          # Generate booking proposal for today
+2. /time-tracking.sync-drive                # Upload booking proposal to Drive
+3. /time-tracking.sync-calendar             # Create calendar events from proposal
+4. /time-tracking.sync-tempo                # Create Tempo worklogs from proposal
+```
+
+### Environment Variables
+
+All sync-related secrets should be configured in `.opencode/.env` (loaded by `opencode-plugin-shell-env`):
+
+| Variable | Required | Used by | Description |
+|----------|----------|---------|-------------|
+| `OPENCODE_USER_EMAIL` | Yes | All | User email for CSV entries and file naming |
+| `TT_SOURCE_CALENDAR_ID` | No | Booking-Proposal | Source calendar for meeting integration |
+| `TT_BOOKING_CALENDAR_ID` | For Calendar Sync | Calendar Sync | Target calendar for booking events |
+| `TT_DRIVE_FOLDER_ID` | For Drive Sync | Drive Sync | Google Drive folder ID for CSV upload |
+| `TT_TEMPO_API_TOKEN` | For Tempo Sync | Tempo Sync | Tempo API Bearer Token |
+| `TT_ATLASSIAN_ACCOUNT_ID` | For Tempo Sync | Tempo Sync | Atlassian Account ID for worklog author |
+
+Example `.opencode/.env`:
+
+```env
+OPENCODE_USER_EMAIL=t.wagner@techdivision.com
+
+# Google Calendar Sync
+TT_SOURCE_CALENDAR_ID=t.wagner@techdivision.com
+TT_BOOKING_CALENDAR_ID=c_abc123@group.calendar.google.com
+
+# Google Drive Sync
+TT_DRIVE_FOLDER_ID=1_L1iKvRgfirDpGWhTCvGDdyZh9dl-Vjs
+
+# Tempo Sync
+TT_TEMPO_API_TOKEN=your-tempo-api-token
+TT_ATLASSIAN_ACCOUNT_ID=5b10a2844c20165700ede21g
+```
+
+### Google Drive Sync
+
+Uploads CSV files to a Google Drive folder.
+
+**Two modes:**
+
+| Mode | Command | Description |
+|------|---------|-------------|
+| Default | `/time-tracking.sync-drive [period]` | Upload booking-proposal CSV for a specific date |
+| Raw | `/time-tracking.sync-drive --raw` | Upload the entire raw `time_tracking.csv` |
+
+**File naming:**
+
+| Mode | Pattern |
+|------|---------|
+| Default | `{email}-booking_proposal-{date}-{YYYYMMDDHHmmss}.csv` |
+| Raw | `{email}-time_tracking-{YYYYMMDDHHmmss}.csv` |
+
+**Prerequisite:** `TT_DRIVE_FOLDER_ID` must be set.
+
+### Google Calendar Sync
+
+Syncs booking proposals to Google Calendar. Creates, updates, and deletes events in the booking calendar based on the booking-proposal CSV.
+
+```bash
+/time-tracking.sync-calendar              # Today
+/time-tracking.sync-calendar yesterday    # Yesterday
+```
+
+**Prerequisites:** `TT_BOOKING_CALENDAR_ID` must be set. Optionally `TT_SOURCE_CALENDAR_ID` for source calendar integration.
+
+### Tempo Sync
+
+Syncs booking proposals to JIRA Tempo as worklogs. Creates, updates, and deletes worklogs based on the booking-proposal CSV.
+
+```bash
+/time-tracking.sync-tempo                 # Today
+/time-tracking.sync-tempo yesterday       # Yesterday
+```
+
+**Prerequisites:** `TT_TEMPO_API_TOKEN` and `TT_ATLASSIAN_ACCOUNT_ID` must be set. All booking entries must have an `issue_key`.
+
+### Sync Configuration
+
+Add sync endpoints to your `.opencode/opencode-project.json`:
+
+```json
+{
+  "time_tracking": {
+    "sync": {
+      "drive": {
+        "folder_id": "{env.TT_DRIVE_FOLDER_ID}"
+      },
+      "calendar": {
+        "source_calendar_id": "{env.TT_SOURCE_CALENDAR_ID}",
+        "booking_calendar_id": "{env.TT_BOOKING_CALENDAR_ID}",
+        "ticket_pattern": "([A-Z]+-\\d+)",
+        "account_pattern": "(TD_[A-Z0-9_]+)",
+        "color_id": "9",
+        "filter": {
+          "exclude_title_patterns": ["^\\[PRIVAT\\]"],
+          "require_accepted": true,
+          "exclude_all_day": true
+        }
+      },
+      "tempo": {
+        "api_token": "{env.TT_TEMPO_API_TOKEN}",
+        "base_url": "https://api.tempo.io",
+        "atlassian_account_id": "{env.TT_ATLASSIAN_ACCOUNT_ID}"
+      }
+    }
+  }
+}
+```
+
+## Events
+
+| Event | When triggered |
+|-------|----------------|
+| `session.idle` | After each complete AI response (including all tool calls) |
 
 ## Development
 
