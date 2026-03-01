@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-01
+
+### Added
+
+- Drive sync agent and command documentation with full upload workflow and `--raw` mode
+- Sync Features section in README with commands overview, environment variables, and configuration
+- Complete `.env` example with all sync-related variables
+
+### Fixed
+
+- Invalid JIRA issue keys in examples across README, skills, and type definitions (`PROJ-DEV-001` → `PROJ-101` etc.)
+
 ## [1.0.0] - 2026-03-01
 
 ### Added
