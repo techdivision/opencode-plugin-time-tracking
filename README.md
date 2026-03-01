@@ -126,6 +126,58 @@ Override default ticket/account for specific agents:
 }
 ```
 
+#### Agent Grouping (Subagents)
+
+Group multiple subagents under a primary agent to avoid repeating the same configuration. Subagents inherit the primary agent's `issue_key` and `account_key` as fallback, and the **primary agent name** is recorded in the CSV instead of the subagent name.
+
+```json
+{
+  "time_tracking": {
+    "csv_file": "...",
+    "global_default": {
+      "issue_key": "PROJ-MISC",
+      "account_key": "TD_GENERAL"
+    },
+    "agent_defaults": {
+      "@implementation": {
+        "issue_key": "PROJ-DEV",
+        "account_key": "TD_DEVELOPMENT",
+        "subagents": ["@developer", "@reviewer", "@tester"]
+      },
+      "@coordination": {
+        "issue_key": "PROJ-MGMT",
+        "account_key": "TD_MANAGEMENT",
+        "subagents": ["@plan", "@build"]
+      }
+    }
+  }
+}
+```
+
+**Behavior:**
+- When `@developer` runs, the CSV records `@implementation` as the agent
+- Ticket and account key are resolved from `@implementation`'s config
+- A subagent with its own direct entry uses that entry for ticket/account resolution, but the CSV still shows the primary agent name
+
+**Override example:** If `@developer` needs a different ticket but should still be grouped under `@implementation`:
+
+```json
+{
+  "agent_defaults": {
+    "@implementation": {
+      "issue_key": "PROJ-DEV",
+      "account_key": "TD_DEV",
+      "subagents": ["@developer", "@reviewer", "@tester"]
+    },
+    "@developer": {
+      "issue_key": "PROJ-SPECIAL"
+    }
+  }
+}
+```
+
+In this case, `@developer` uses `PROJ-SPECIAL` as ticket (own entry takes priority) but the CSV still records `@implementation` as agent name.
+
 #### Ignored Agents
 
 Skip time tracking for specific agents:
@@ -166,15 +218,18 @@ Restrict ticket detection to specific JIRA projects:
       "account_key": "TD_GENERAL"
     },
     "agent_defaults": {
-      "@developer": {
+      "@implementation": {
         "issue_key": "PROJ-DEV",
-        "account_key": "TD_DEVELOPMENT"
+        "account_key": "TD_DEVELOPMENT",
+        "subagents": ["@developer", "@reviewer", "@tester"]
       },
-      "@reviewer": {
-        "issue_key": "PROJ-REVIEW"
+      "@coordination": {
+        "issue_key": "PROJ-MGMT",
+        "account_key": "TD_MANAGEMENT",
+        "subagents": ["@plan", "@build"]
       }
     },
-    "ignored_agents": ["@internal"],
+    "ignored_agents": ["@time-tracking"],
     "valid_projects": ["PROJ", "SOSO"]
   }
 }
@@ -205,13 +260,20 @@ Without whitelist (default):
 ### Ticket Resolution
 
 1. Context ticket (from messages/todos)
-2. Agent-specific `issue_key` (if configured)
-3. `global_default.issue_key`
+2. Direct agent-specific `issue_key` (if agent has its own entry)
+3. Primary agent's `issue_key` (if agent is listed in a `subagents` array)
+4. `global_default.issue_key`
 
 ### Account Key Resolution
 
-1. Agent-specific `account_key` (if configured)
-2. `global_default.account_key`
+1. Direct agent-specific `account_key` (if agent has its own entry)
+2. Primary agent's `account_key` (if agent is listed in a `subagents` array)
+3. `global_default.account_key`
+
+### CSV Agent Name
+
+1. Primary agent name (if agent is listed in a `subagents` array)
+2. Actual agent name (if no subagent mapping exists)
 
 ## How It Works
 

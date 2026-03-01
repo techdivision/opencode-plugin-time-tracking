@@ -16,9 +16,10 @@ export interface ResolvedTicketInfo {
    * @remarks
    * Resolution priority:
    * 1. Context ticket (from messages/todos)
-   * 2. Agent default (from config)
-   * 3. Global default (from config)
-   * 4. `null` (no ticket found)
+   * 2. Direct agent default (from config)
+   * 3. Primary agent default (if agent is subagent of a primary agent)
+   * 4. Global default (from config)
+   * 5. `null` (no ticket found)
    */
   ticket: string | null
 
@@ -27,9 +28,21 @@ export interface ResolvedTicketInfo {
    *
    * @remarks
    * Resolution priority:
-   * 1. Agent-specific account_key
-   * 2. Global default account_key
-   * 3. default_account_key from config
+   * 1. Direct agent-specific account_key
+   * 2. Primary agent's account_key (if agent is subagent)
+   * 3. Global default account_key
    */
   accountKey: string
+
+  /**
+   * Primary agent name for CSV recording, or `null` if no mapping exists.
+   *
+   * @remarks
+   * When a subagent is active and mapped to a primary agent via `subagents`,
+   * this field contains the primary agent's name (e.g., "@implementation").
+   * The CSV should use this name instead of the actual subagent name.
+   *
+   * `null` if the agent has no primary agent mapping.
+   */
+  primaryAgent: string | null
 }
