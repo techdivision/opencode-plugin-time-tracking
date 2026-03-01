@@ -1,15 +1,18 @@
 ---
-description: Sync booking proposals to Google Sheets (not yet implemented)
+description: Sync booking proposals or raw time tracking CSV to Google Drive
 agent: drive-sync
 ---
 
 # Sync Drive
 
-**Not yet implemented**
+**Arguments:** `$ARGUMENTS` (Format: `[--raw] [period]`)
 
-This command will sync booking proposals to Google Sheets.
+## Modi
 
-**Arguments:** `$ARGUMENTS` (Format: `[period]`)
+| Modus | Beschreibung |
+|-------|-------------|
+| Default | Booking-Proposal CSV hochladen (`booking-proposal-{date}.csv`) |
+| `--raw` | Rohe `time_tracking.csv` hochladen |
 
 ## Period Options
 
@@ -20,25 +23,54 @@ This command will sync booking proposals to Google Sheets.
 | `yesterday` | Yesterday |
 | `YYYY-MM-DD` | Specific date |
 
+> **Hinweis:** Period wird nur im Default-Modus verwendet (bestimmt welche Booking-Proposal Datei).
+> Im `--raw` Modus wird immer die gesamte `time_tracking.csv` hochgeladen.
+
 ## Examples
 
 ```bash
-/time-tracking.sync-drive              # Today
-/time-tracking.sync-drive yesterday    # Yesterday
-/time-tracking.sync-drive 2026-01-28   # Specific date
+/time-tracking.sync-drive                    # Booking-Proposal fuer heute
+/time-tracking.sync-drive yesterday          # Booking-Proposal fuer gestern
+/time-tracking.sync-drive 2026-01-28         # Booking-Proposal fuer bestimmtes Datum
+/time-tracking.sync-drive --raw              # Rohe time_tracking.csv hochladen
+/time-tracking.sync-drive --raw today        # Identisch mit --raw (Period wird ignoriert)
 ```
+
+## Dateinamen-Format
+
+Hochgeladene Dateien werden nach folgendem Schema benannt:
+
+| Modus | Dateiname |
+|-------|-----------|
+| Default | `{OPENCODE_USER_EMAIL}-booking_proposal-{date}-{YYYYMMDDHHmmss}.csv` |
+| `--raw` | `{OPENCODE_USER_EMAIL}-time_tracking-{YYYYMMDDHHmmss}.csv` |
+
+**Beispiele:**
+- `t.wagner@techdivision.com-booking_proposal-2026-03-01-20260301193100.csv`
+- `t.wagner@techdivision.com-time_tracking-20260301193100.csv`
+
+## Skills Reference
+
+Load these skills for detailed specifications:
+- **`time-tracking-booking`** - CSV format and booking proposal structure
 
 ## Prerequisites
 
-1. **Booking proposal must exist:** `.opencode/time_tracking/bookings/booking-proposal-{date}.csv`
+1. **Booking proposal must exist** (nur Default-Modus):
+   `.opencode/time_tracking/bookings/booking-proposal-{date}.csv`
    - If missing: Run `/time-tracking.booking-proposal` first
 
-2. **Drive folder must be configured:**
-   - Environment variable: `TT_DRIVE_FOLDER_ID`
-   - Or config: `time_tracking.sync.drive.folder_id`
+2. **Drive Folder ID must be set** (in `.opencode/.env` or environment):
+   ```bash
+   TT_DRIVE_FOLDER_ID=your-google-drive-folder-id
+   ```
 
-## Planned Features
+3. **User Email must be set** (in `.opencode/.env` or environment):
+   ```bash
+   OPENCODE_USER_EMAIL=your.email@company.com
+   ```
 
-- Create monthly Google Sheets
-- One row per booking entry
-- Auto-sum formulas for daily/weekly totals
+## Output
+
+- Uploads CSV file to configured Google Drive folder
+- Shows upload confirmation with file name and Drive link

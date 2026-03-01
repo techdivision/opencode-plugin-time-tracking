@@ -182,21 +182,21 @@ The MCP plugin `opencode-time-tracking` uses the following fallback hierarchy:
   "time_tracking": {
     "agent_defaults": {
       "@developer": {
-        "issue_key": "PROJ-DEV-001",
+        "issue_key": "PROJ-101",
         "account_key": "TD_DEVELOPMENT"
       },
       "@reviewer": {
-        "issue_key": "PROJ-REV-001"
+        "issue_key": "PROJ-102"
       },
       "@tester": {
-        "issue_key": "PROJ-QA-001"
+        "issue_key": "PROJ-103"
       },
       "@coordinator": {
-        "issue_key": "PROJ-PM-001"
+        "issue_key": "PROJ-104"
       }
     },
     "global_default": {
-      "issue_key": "PROJ-MISC-001",
+      "issue_key": "PROJ-100",
       "account_key": "TD_GENERAL"
     },
     "ignored_agents": ["@time-tracking", "@internal"]

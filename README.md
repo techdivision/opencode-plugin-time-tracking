@@ -64,7 +64,7 @@ Add the `time_tracking` section to your `.opencode/opencode-project.json`:
   "time_tracking": {
     "csv_file": "~/time_tracking/time-tracking.csv",
     "global_default": {
-      "issue_key": "PROJ-MISC",
+      "issue_key": "PROJ-100",
       "account_key": "YOUR_ACCOUNT_KEY"
     }
   }
@@ -110,16 +110,16 @@ Override default ticket/account for specific agents:
   "time_tracking": {
     "csv_file": "...",
     "global_default": {
-      "issue_key": "PROJ-MISC",
+      "issue_key": "PROJ-100",
       "account_key": "TD_GENERAL"
     },
     "agent_defaults": {
       "@developer": {
-        "issue_key": "PROJ-DEV",
+        "issue_key": "PROJ-101",
         "account_key": "TD_DEVELOPMENT"
       },
       "@reviewer": {
-        "issue_key": "PROJ-REVIEW"
+        "issue_key": "PROJ-102"
       }
     }
   }
@@ -135,17 +135,17 @@ Group multiple subagents under a primary agent to avoid repeating the same confi
   "time_tracking": {
     "csv_file": "...",
     "global_default": {
-      "issue_key": "PROJ-MISC",
+      "issue_key": "PROJ-100",
       "account_key": "TD_GENERAL"
     },
     "agent_defaults": {
       "@implementation": {
-        "issue_key": "PROJ-DEV",
+        "issue_key": "PROJ-101",
         "account_key": "TD_DEVELOPMENT",
         "subagents": ["@developer", "@reviewer", "@tester"]
       },
       "@coordination": {
-        "issue_key": "PROJ-MGMT",
+        "issue_key": "PROJ-104",
         "account_key": "TD_MANAGEMENT",
         "subagents": ["@plan", "@build"]
       }
@@ -165,18 +165,18 @@ Group multiple subagents under a primary agent to avoid repeating the same confi
 {
   "agent_defaults": {
     "@implementation": {
-      "issue_key": "PROJ-DEV",
-      "account_key": "TD_DEV",
+      "issue_key": "PROJ-101",
+      "account_key": "TD_DEVELOPMENT",
       "subagents": ["@developer", "@reviewer", "@tester"]
     },
     "@developer": {
-      "issue_key": "PROJ-SPECIAL"
+      "issue_key": "PROJ-199"
     }
   }
 }
 ```
 
-In this case, `@developer` uses `PROJ-SPECIAL` as ticket (own entry takes priority) but the CSV still records `@implementation` as agent name.
+In this case, `@developer` uses `PROJ-199` as ticket (own entry takes priority) but the CSV still records `@implementation` as agent name.
 
 #### Ignored Agents
 
@@ -214,17 +214,17 @@ Restrict ticket detection to specific JIRA projects:
   "time_tracking": {
     "csv_file": "~/time_tracking/time-tracking.csv",
     "global_default": {
-      "issue_key": "PROJ-MISC",
+      "issue_key": "PROJ-100",
       "account_key": "TD_GENERAL"
     },
     "agent_defaults": {
       "@implementation": {
-        "issue_key": "PROJ-DEV",
+        "issue_key": "PROJ-101",
         "account_key": "TD_DEVELOPMENT",
         "subagents": ["@developer", "@reviewer", "@tester"]
       },
       "@coordination": {
-        "issue_key": "PROJ-MGMT",
+        "issue_key": "PROJ-104",
         "account_key": "TD_MANAGEMENT",
         "subagents": ["@plan", "@build"]
       }
@@ -286,6 +286,134 @@ Without whitelist (default):
 
 ```
 id,start_date,end_date,user,ticket_name,issue_key,account_key,start_time,end_time,duration_seconds,tokens_used,tokens_remaining,story_points,description,notes
+```
+
+## Sync Features
+
+The plugin provides several sync commands to export time tracking data to external systems.
+
+### Commands Overview
+
+| Command | Description | Agent |
+|---------|-------------|-------|
+| `/time-tracking.booking-proposal` | Generate daily booking proposal from tracked time | `booking-proposal` |
+| `/time-tracking.sync-drive` | Upload CSV to Google Drive | `drive-sync` |
+| `/time-tracking.sync-calendar` | Sync booking proposals to Google Calendar | `calendar-sync` |
+| `/time-tracking.sync-tempo` | Sync booking proposals to JIRA Tempo worklogs | `tempo-sync` |
+| `/time-tracking.sync-worklogs` | Prepare time entries + calendar events for worklog sync | (inline) |
+
+### Typical Workflow
+
+```
+1. /time-tracking.booking-proposal          # Generate booking proposal for today
+2. /time-tracking.sync-drive                # Upload booking proposal to Drive
+3. /time-tracking.sync-calendar             # Create calendar events from proposal
+4. /time-tracking.sync-tempo                # Create Tempo worklogs from proposal
+```
+
+### Environment Variables
+
+All sync-related secrets should be configured in `.opencode/.env` (loaded by `opencode-plugin-shell-env`):
+
+| Variable | Required | Used by | Description |
+|----------|----------|---------|-------------|
+| `OPENCODE_USER_EMAIL` | Yes | All | User email for CSV entries and file naming |
+| `TT_SOURCE_CALENDAR_ID` | No | Booking-Proposal | Source calendar for meeting integration |
+| `TT_BOOKING_CALENDAR_ID` | For Calendar Sync | Calendar Sync | Target calendar for booking events |
+| `TT_DRIVE_FOLDER_ID` | For Drive Sync | Drive Sync | Google Drive folder ID for CSV upload |
+| `TT_TEMPO_API_TOKEN` | For Tempo Sync | Tempo Sync | Tempo API Bearer Token |
+| `TT_ATLASSIAN_ACCOUNT_ID` | For Tempo Sync | Tempo Sync | Atlassian Account ID for worklog author |
+
+Example `.opencode/.env`:
+
+```env
+OPENCODE_USER_EMAIL=t.wagner@techdivision.com
+
+# Google Calendar Sync
+TT_SOURCE_CALENDAR_ID=t.wagner@techdivision.com
+TT_BOOKING_CALENDAR_ID=c_abc123@group.calendar.google.com
+
+# Google Drive Sync
+TT_DRIVE_FOLDER_ID=1_L1iKvRgfirDpGWhTCvGDdyZh9dl-Vjs
+
+# Tempo Sync
+TT_TEMPO_API_TOKEN=your-tempo-api-token
+TT_ATLASSIAN_ACCOUNT_ID=5b10a2844c20165700ede21g
+```
+
+### Google Drive Sync
+
+Uploads CSV files to a Google Drive folder.
+
+**Two modes:**
+
+| Mode | Command | Description |
+|------|---------|-------------|
+| Default | `/time-tracking.sync-drive [period]` | Upload booking-proposal CSV for a specific date |
+| Raw | `/time-tracking.sync-drive --raw` | Upload the entire raw `time_tracking.csv` |
+
+**File naming:**
+
+| Mode | Pattern |
+|------|---------|
+| Default | `{email}-booking_proposal-{date}-{YYYYMMDDHHmmss}.csv` |
+| Raw | `{email}-time_tracking-{YYYYMMDDHHmmss}.csv` |
+
+**Prerequisite:** `TT_DRIVE_FOLDER_ID` must be set.
+
+### Google Calendar Sync
+
+Syncs booking proposals to Google Calendar. Creates, updates, and deletes events in the booking calendar based on the booking-proposal CSV.
+
+```bash
+/time-tracking.sync-calendar              # Today
+/time-tracking.sync-calendar yesterday    # Yesterday
+```
+
+**Prerequisites:** `TT_BOOKING_CALENDAR_ID` must be set. Optionally `TT_SOURCE_CALENDAR_ID` for source calendar integration.
+
+### Tempo Sync
+
+Syncs booking proposals to JIRA Tempo as worklogs. Creates, updates, and deletes worklogs based on the booking-proposal CSV.
+
+```bash
+/time-tracking.sync-tempo                 # Today
+/time-tracking.sync-tempo yesterday       # Yesterday
+```
+
+**Prerequisites:** `TT_TEMPO_API_TOKEN` and `TT_ATLASSIAN_ACCOUNT_ID` must be set. All booking entries must have an `issue_key`.
+
+### Sync Configuration
+
+Add sync endpoints to your `.opencode/opencode-project.json`:
+
+```json
+{
+  "time_tracking": {
+    "sync": {
+      "drive": {
+        "folder_id": "{env.TT_DRIVE_FOLDER_ID}"
+      },
+      "calendar": {
+        "source_calendar_id": "{env.TT_SOURCE_CALENDAR_ID}",
+        "booking_calendar_id": "{env.TT_BOOKING_CALENDAR_ID}",
+        "ticket_pattern": "([A-Z]+-\\d+)",
+        "account_pattern": "(TD_[A-Z0-9_]+)",
+        "color_id": "9",
+        "filter": {
+          "exclude_title_patterns": ["^\\[PRIVAT\\]"],
+          "require_accepted": true,
+          "exclude_all_day": true
+        }
+      },
+      "tempo": {
+        "api_token": "{env.TT_TEMPO_API_TOKEN}",
+        "base_url": "https://api.tempo.io",
+        "atlassian_account_id": "{env.TT_ATLASSIAN_ACCOUNT_ID}"
+      }
+    }
+  }
+}
 ```
 
 ## Events
