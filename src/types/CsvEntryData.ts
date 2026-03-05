@@ -8,6 +8,25 @@ import type { TokenUsage } from "./TokenUsage"
  * Data structure for a single CSV worklog entry.
  */
 export interface CsvEntryData {
+  /**
+   * Unique identifier for this entry (UUID v4).
+   *
+   * @remarks
+   * Generated once and shared across all WriterService implementations
+   * to ensure consistent identification across CSV, webhook, etc.
+   */
+  id: string
+
+  /**
+   * User email for the worklog.
+   *
+   * @remarks
+   * Resolved from (in order of priority):
+   * 1. `OPENCODE_USER_EMAIL` environment variable
+   * 2. System username (via `os.userInfo().username`)
+   */
+  userEmail: string
+
   /** Jira ticket reference (e.g., "PROJ-123"), or `null` if not found */
   ticket: string | null
 

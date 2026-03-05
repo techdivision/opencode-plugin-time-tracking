@@ -2,12 +2,12 @@
  * @fileoverview CSV writer for exporting time tracking data.
  */
 
-import { randomUUID } from "crypto"
 import { mkdir } from "fs/promises"
 import { dirname } from "path"
 
 import type { CsvEntryData } from "../types/CsvEntryData"
 import type { TimeTrackingConfig } from "../types/TimeTrackingConfig"
+import type { WriteResult, WriterService } from "../types/WriterService"
 
 import { CsvFormatter } from "../utils/CsvFormatter"
 
@@ -69,7 +69,7 @@ function padCsvLine(
  * The CSV format is compatible with Jira/Tempo worklog imports.
  * The file path can be absolute, relative to the project, or use `~/` for home directory.
  */
-export class CsvWriter {
+export class CsvWriter implements WriterService {
   /** Plugin configuration */
   private config: TimeTrackingConfig
 
@@ -195,6 +195,7 @@ export class CsvWriter {
    * Writes a time tracking entry to the CSV file.
    *
    * @param data - The entry data to write
+   * @returns Result indicating success or failure
    *
    * @remarks
    * Assumes `ensureHeader()` was called at startup.
@@ -202,7 +203,9 @@ export class CsvWriter {
    *
    * @example
    * ```typescript
-   * await csvWriter.write({
+   * const result = await csvWriter.write({
+   *   id: crypto.randomUUID(),
+   *   userEmail: "user@example.com",
    *   ticket: "PROJ-123",
    *   startTime: Date.now() - 3600000,
    *   endTime: Date.now(),
@@ -210,53 +213,70 @@ export class CsvWriter {
    *   description: "Implemented feature X",
    *   notes: "Auto-tracked: read(5x), edit(3x)",
    *   tokenUsage: { input: 1000, output: 500, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
-   *   cost: 0.0234
+   *   cost: 0.0234,
+   *   model: "anthropic/claude-opus-4",
+   *   agent: "@developer",
+   *   accountKey: "ACCOUNT-1"
    * })
+   *
+   * if (!result.success) {
+   *   console.error(`CSV write failed: ${result.error}`)
+   * }
    * ```
    */
-  async write(data: CsvEntryData): Promise<void> {
-    const csvPath = this.resolvePath()
-    const file = Bun.file(csvPath)
-    const exists = await file.exists()
+  async write(data: CsvEntryData): Promise<WriteResult> {
+    try {
+      const csvPath = this.resolvePath()
+      const file = Bun.file(csvPath)
+      const exists = await file.exists()
 
-    const totalTokens =
-      data.tokenUsage.input + data.tokenUsage.output + data.tokenUsage.reasoning
+      const totalTokens =
+        data.tokenUsage.input + data.tokenUsage.output + data.tokenUsage.reasoning
 
-    const fields = [
-      randomUUID(),
-      CsvFormatter.formatDate(data.startTime),
-      CsvFormatter.formatDate(data.endTime),
-      this.config.user_email,
-      "",
-      data.ticket ?? "",
-      data.accountKey,
-      CsvFormatter.formatTime(data.startTime),
-      CsvFormatter.formatTime(data.endTime),
-      data.durationSeconds.toString(),
-      totalTokens.toString(),
-      "",
-      "",
-      CsvFormatter.escape(data.description),
-      CsvFormatter.escape(data.notes),
-      data.model ?? "",
-      data.agent ?? "",
-      // Extended columns (v0.8.0+)
-      data.tokenUsage.input.toString(),
-      data.tokenUsage.output.toString(),
-      data.tokenUsage.reasoning.toString(),
-      data.tokenUsage.cacheRead.toString(),
-      data.tokenUsage.cacheWrite.toString(),
-      data.cost.toFixed(6),
-    ]
+      const fields = [
+        data.id,
+        CsvFormatter.formatDate(data.startTime),
+        CsvFormatter.formatDate(data.endTime),
+        data.userEmail,
+        "",
+        data.ticket ?? "",
+        data.accountKey,
+        CsvFormatter.formatTime(data.startTime),
+        CsvFormatter.formatTime(data.endTime),
+        data.durationSeconds.toString(),
+        totalTokens.toString(),
+        "",
+        "",
+        CsvFormatter.escape(data.description),
+        CsvFormatter.escape(data.notes),
+        data.model ?? "",
+        data.agent ?? "",
+        // Extended columns (v0.8.0+)
+        data.tokenUsage.input.toString(),
+        data.tokenUsage.output.toString(),
+        data.tokenUsage.reasoning.toString(),
+        data.tokenUsage.cacheRead.toString(),
+        data.tokenUsage.cacheWrite.toString(),
+        data.cost.toFixed(6),
+      ]
 
-    const csvLine = fields.map((f) => `"${f}"`).join(",")
+      const csvLine = fields.map((f) => `"${f}"`).join(",")
 
-    if (!exists) {
-      // Fallback: create file with header if ensureHeader() wasn't called
-      await Bun.write(csvPath, CSV_HEADER + "\n" + csvLine + "\n")
-    } else {
-      const content = await file.text()
-      await Bun.write(csvPath, content + csvLine + "\n")
+      if (!exists) {
+        // Fallback: create file with header if ensureHeader() wasn't called
+        await Bun.write(csvPath, CSV_HEADER + "\n" + csvLine + "\n")
+      } else {
+        const content = await file.text()
+        await Bun.write(csvPath, content + csvLine + "\n")
+      }
+
+      return { writer: "csv", success: true }
+    } catch (error) {
+      return {
+        writer: "csv",
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      }
     }
   }
 }

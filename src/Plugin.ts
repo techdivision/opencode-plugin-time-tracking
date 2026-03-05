@@ -14,8 +14,11 @@ import { CsvWriter } from "./services/CsvWriter"
 import { SessionManager } from "./services/SessionManager"
 import { TicketExtractor } from "./services/TicketExtractor"
 import { TicketResolver } from "./services/TicketResolver"
+import { WebhookSender } from "./services/WebhookSender"
 import { createEventHook } from "./hooks/EventHook"
 import { createToolExecuteAfterHook } from "./hooks/ToolExecuteAfterHook"
+
+import type { WriterService } from "./types/WriterService"
 
 /**
  * OpenCode Time Tracking Plugin
@@ -61,8 +64,12 @@ export const plugin: Plugin = async ({
 
   const sessionManager = new SessionManager()
   const csvWriter = new CsvWriter(config, directory)
+  const webhookSender = new WebhookSender()
   const ticketExtractor = new TicketExtractor(client, config.valid_projects)
   const ticketResolver = new TicketResolver(config, ticketExtractor)
+
+  // Writers are called in order: CSV first (backup), then webhook
+  const writers: WriterService[] = [csvWriter, webhookSender]
 
   // Ensure CSV file has a valid header at startup
   await csvWriter.ensureHeader()
@@ -72,7 +79,7 @@ export const plugin: Plugin = async ({
       sessionManager,
       ticketExtractor
     ),
-    event: createEventHook(sessionManager, csvWriter, client, ticketResolver, config),
+    event: createEventHook(sessionManager, writers, client, ticketResolver, config),
   }
 
   return hooks
