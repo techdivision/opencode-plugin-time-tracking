@@ -11,22 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Webhook support** for time tracking entries via `WebhookSender` service
 - `WriterService` interface for pluggable output writers (extensible architecture)
+- `WriteResult` interface: `{ writer: string, success: boolean, error?: string }`
 - New environment variables for webhook configuration:
   - `TT_WEBHOOK_URL` - Webhook endpoint URL (optional, webhook disabled if not set)
   - `TT_WEBHOOK_BEARER_TOKEN` - Bearer token for webhook authentication (optional)
+- Tool response now includes `writers: WriteResult[]` array for detailed status
 
 ### Changed
 
+- **BREAKING:** `WriterService.write()` now returns `Promise<WriteResult>` instead of `Promise<void>`
 - `EventHook` now accepts an array of `WriterService` implementations
+- `EventHook` collects `WriteResult[]` and shows combined status toast
 - UUID is generated once in `EventHook` and passed to all writers (consistent ID across CSV and webhook)
-- `CsvWriter` refactored to implement `WriterService` interface
+- `CsvWriter` refactored to implement `WriterService` interface, returns `WriteResult`
+- `WebhookSender` returns `WriteResult` (toast handler removed, consolidated in `EventHook`)
 - `CsvEntryData` extended with `id` and `userEmail` fields
+- `track-time` tool refactored to use `WriterService` architecture directly
 
 ### Technical
 
 - Both CSV and webhook are triggered on each `session.idle` event
 - CSV is written first (as backup), then webhook is called
-- Webhook failures show toast notification but don't block CSV writing
+- Consistent error handling across all writers
+- Single combined toast shows all writer statuses (e.g., "csv: ✓, webhook: ✗")
 - Webhook payload matches CSV entry structure (JSON format)
 
 ## [1.2.0] - 2026-03-01

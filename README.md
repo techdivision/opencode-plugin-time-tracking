@@ -359,10 +359,18 @@ The webhook receives a POST request with `Content-Type: application/json`. The p
 The plugin uses a `WriterService` interface for output. You can implement custom writers by following the interface:
 
 ```typescript
+interface WriteResult {
+  writer: string;      // e.g., "csv", "webhook"
+  success: boolean;
+  error?: string;      // Only present if success === false
+}
+
 interface WriterService {
-  write(data: CsvEntryData): Promise<void>;
+  write(data: CsvEntryData): Promise<WriteResult>;
 }
 ```
+
+Each writer returns a `WriteResult` indicating success or failure. The `EventHook` collects all results and shows a combined toast notification (e.g., "Time tracked: 5 min, 1000 tokens for PROJ-123 (webhook: failed)").
 
 ## Sync Features
 
