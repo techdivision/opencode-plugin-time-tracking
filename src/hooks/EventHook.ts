@@ -2,15 +2,18 @@
  * @fileoverview Event hook for session lifecycle and token tracking.
  */
 
+import { randomUUID } from "crypto"
+
 import type { AssistantMessage, Event, Message } from "@opencode-ai/sdk"
 
-import type { CsvWriter } from "../services/CsvWriter"
 import type { SessionManager } from "../services/SessionManager"
 import type { TicketResolver } from "../services/TicketResolver"
+import type { CsvEntryData } from "../types/CsvEntryData"
 import type { MessagePartUpdatedProperties } from "../types/MessagePartUpdatedProperties"
 import type { MessageWithParts } from "../types/MessageWithParts"
 import type { OpencodeClient } from "../types/OpencodeClient"
 import type { TimeTrackingConfig } from "../types/TimeTrackingConfig"
+import type { WriterService } from "../types/WriterService"
 
 import { AgentMatcher } from "../utils/AgentMatcher"
 import { DescriptionGenerator } from "../utils/DescriptionGenerator"
@@ -65,8 +68,10 @@ async function extractSummaryTitle(
  * Creates the event hook for session lifecycle management.
  *
  * @param sessionManager - The session manager instance
- * @param csvWriter - The CSV writer instance
+ * @param writers - Array of writer services to persist entries (e.g., CsvWriter, WebhookSender)
  * @param client - The OpenCode SDK client
+ * @param ticketResolver - The ticket resolver instance
+ * @param config - The time tracking configuration
  * @returns The event hook function
  *
  * @remarks
@@ -74,18 +79,22 @@ async function extractSummaryTitle(
  *
  * 1. **message.updated** - Tracks model from assistant messages
  * 2. **message.part.updated** - Tracks token usage from step-finish parts
- * 3. **session.idle** - Finalizes and exports the session
+ * 3. **session.idle** - Finalizes and exports the session via all writers
+ *
+ * Writers are called in order. Each writer handles its own errors internally,
+ * so a failure in one writer does not affect others.
  *
  * @example
  * ```typescript
+ * const writers: WriterService[] = [csvWriter, webhookSender]
  * const hooks: Hooks = {
- *   event: createEventHook(sessionManager, csvWriter, client),
+ *   event: createEventHook(sessionManager, writers, client, ticketResolver, config),
  * }
  * ```
  */
 export function createEventHook(
   sessionManager: SessionManager,
-  csvWriter: CsvWriter,
+  writers: WriterService[],
   client: OpencodeClient,
   ticketResolver: TicketResolver,
   config: TimeTrackingConfig
@@ -219,37 +228,42 @@ export function createEventHook(
       // Resolve ticket and account key with fallback hierarchy
       const resolved = await ticketResolver.resolve(sessionID, agentString)
 
-      try {
-        await csvWriter.write({
-          ticket: resolved.ticket,
-          accountKey: resolved.accountKey,
-          startTime: session.startTime,
-          endTime,
-          durationSeconds,
-          description,
-          notes: `Auto-tracked: ${toolSummary}`,
-          tokenUsage: session.tokenUsage,
-          cost: session.cost,
-          model: modelString,
-          agent: resolved.primaryAgent ?? agentString,
-        })
-
-        const minutes = Math.round(durationSeconds / 60)
-
-        await client.tui.showToast({
-          body: {
-            message: `Time tracked: ${minutes} min, ${totalTokens} tokens${resolved.ticket ? ` for ${resolved.ticket}` : ""}`,
-            variant: "success",
-          },
-        })
-      } catch {
-        await client.tui.showToast({
-          body: {
-            message: "Time Tracking: Failed to save entry",
-            variant: "error",
-          },
-        })
+      // Build entry data once, shared across all writers
+      const entryData: CsvEntryData = {
+        id: randomUUID(),
+        userEmail: config.user_email,
+        ticket: resolved.ticket,
+        accountKey: resolved.accountKey,
+        startTime: session.startTime,
+        endTime,
+        durationSeconds,
+        description,
+        notes: `Auto-tracked: ${toolSummary}`,
+        tokenUsage: session.tokenUsage,
+        cost: session.cost,
+        model: modelString,
+        agent: resolved.primaryAgent ?? agentString,
       }
+
+      // Call all writers in order (CSV first, then webhook, etc.)
+      // Each writer handles its own errors internally
+      for (const writer of writers) {
+        try {
+          await writer.write(entryData)
+        } catch {
+          // Individual writer errors are handled internally
+          // Continue with other writers
+        }
+      }
+
+      const minutes = Math.round(durationSeconds / 60)
+
+      await client.tui.showToast({
+        body: {
+          message: `Time tracked: ${minutes} min, ${totalTokens} tokens${resolved.ticket ? ` for ${resolved.ticket}` : ""}`,
+          variant: "success",
+        },
+      })
     }
   }
 }
