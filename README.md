@@ -295,6 +295,74 @@ Without whitelist (default):
 id,start_date,end_date,user,ticket_name,issue_key,account_key,start_time,end_time,duration_seconds,tokens_used,tokens_remaining,story_points,description,notes
 ```
 
+## Webhook Integration
+
+The plugin can send time tracking entries to a webhook endpoint in addition to writing them to CSV. This enables real-time integration with external systems.
+
+### Configuration
+
+Set the following environment variables in `.opencode/.env`:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TT_WEBHOOK_URL` | No | Webhook endpoint URL. If not set, webhook is disabled. |
+| `TT_WEBHOOK_BEARER_TOKEN` | No | Bearer token for webhook authentication. If set, adds `Authorization: Bearer <token>` header. |
+
+Example `.opencode/.env`:
+
+```env
+TT_WEBHOOK_URL=https://your-api.example.com/time-tracking
+TT_WEBHOOK_BEARER_TOKEN=your-secret-token
+```
+
+### Behavior
+
+- **Dual output:** Both CSV and webhook are triggered on each session idle event
+- **Order:** CSV is written first (as backup), then webhook is called
+- **Failure handling:** Webhook failures show a toast notification but don't block CSV writing
+- **Consistent ID:** The same UUID is used for both CSV entry and webhook payload
+
+### Webhook Payload
+
+The webhook receives a POST request with `Content-Type: application/json`. The payload matches the CSV entry structure:
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "startDate": "2026-03-05",
+  "endDate": "2026-03-05",
+  "userEmail": "your@email.com",
+  "ticketName": "Implement webhook feature",
+  "issueKey": "PROJ-123",
+  "accountKey": "TD_DEVELOPMENT",
+  "startTime": "09:00:00",
+  "endTime": "09:15:00",
+  "durationSeconds": 900,
+  "inputTokens": 1500,
+  "outputTokens": 800,
+  "cacheCreationInputTokens": 0,
+  "cacheReadInputTokens": 500,
+  "totalTokens": 2800,
+  "inputCost": 0.015,
+  "outputCost": 0.012,
+  "totalCost": 0.027,
+  "model": "claude-sonnet-4-20250514",
+  "agentName": "@developer",
+  "description": "Implemented webhook sender service",
+  "notes": ""
+}
+```
+
+### Extending with Custom Writers
+
+The plugin uses a `WriterService` interface for output. You can implement custom writers by following the interface:
+
+```typescript
+interface WriterService {
+  write(data: CsvEntryData): Promise<void>;
+}
+```
+
 ## Sync Features
 
 The plugin provides several sync commands to export time tracking data to external systems.
@@ -325,6 +393,8 @@ All sync-related secrets should be configured in `.opencode/.env` (loaded by `op
 | Variable | Required | Used by | Description |
 |----------|----------|---------|-------------|
 | `OPENCODE_USER_EMAIL` | Yes | All | User email for CSV entries and file naming |
+| `TT_WEBHOOK_URL` | No | Webhook | Webhook endpoint URL (disabled if not set) |
+| `TT_WEBHOOK_BEARER_TOKEN` | No | Webhook | Bearer token for webhook authentication |
 | `TT_SOURCE_CALENDAR_ID` | No | Booking-Proposal | Source calendar for meeting integration |
 | `TT_BOOKING_CALENDAR_ID` | For Calendar Sync | Calendar Sync | Target calendar for booking events |
 | `TT_DRIVE_FOLDER_ID` | For Drive Sync | Drive Sync | Google Drive folder ID for CSV upload |
@@ -335,6 +405,10 @@ Example `.opencode/.env`:
 
 ```env
 OPENCODE_USER_EMAIL=t.wagner@techdivision.com
+
+# Webhook Integration (optional)
+TT_WEBHOOK_URL=https://your-api.example.com/time-tracking
+TT_WEBHOOK_BEARER_TOKEN=your-secret-token
 
 # Google Calendar Sync
 TT_SOURCE_CALENDAR_ID=t.wagner@techdivision.com

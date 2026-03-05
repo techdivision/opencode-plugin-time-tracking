@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-05
+
+### Added
+
+- **Webhook support** for time tracking entries via `WebhookSender` service
+- `WriterService` interface for pluggable output writers (extensible architecture)
+- New environment variables for webhook configuration:
+  - `TT_WEBHOOK_URL` - Webhook endpoint URL (optional, webhook disabled if not set)
+  - `TT_WEBHOOK_BEARER_TOKEN` - Bearer token for webhook authentication (optional)
+
+### Changed
+
+- `EventHook` now accepts an array of `WriterService` implementations
+- UUID is generated once in `EventHook` and passed to all writers (consistent ID across CSV and webhook)
+- `CsvWriter` refactored to implement `WriterService` interface
+- `CsvEntryData` extended with `id` and `userEmail` fields
+
+### Technical
+
+- Both CSV and webhook are triggered on each `session.idle` event
+- CSV is written first (as backup), then webhook is called
+- Webhook failures show toast notification but don't block CSV writing
+- Webhook payload matches CSV entry structure (JSON format)
+
 ## [1.2.0] - 2026-03-01
 
 ### Added
