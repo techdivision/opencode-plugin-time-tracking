@@ -324,32 +324,33 @@ TT_WEBHOOK_BEARER_TOKEN=your-secret-token
 
 ### Webhook Payload
 
-The webhook receives a POST request with `Content-Type: application/json`. The payload matches the CSV entry structure:
+The webhook receives a POST request with `Content-Type: application/json`. The payload matches the CSV entry structure (snake_case field names):
 
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
-  "startDate": "2026-03-05",
-  "endDate": "2026-03-05",
-  "userEmail": "your@email.com",
-  "ticketName": "Implement webhook feature",
-  "issueKey": "PROJ-123",
-  "accountKey": "TD_DEVELOPMENT",
-  "startTime": "09:00:00",
-  "endTime": "09:15:00",
-  "durationSeconds": 900,
-  "inputTokens": 1500,
-  "outputTokens": 800,
-  "cacheCreationInputTokens": 0,
-  "cacheReadInputTokens": 500,
-  "totalTokens": 2800,
-  "inputCost": 0.015,
-  "outputCost": 0.012,
-  "totalCost": 0.027,
-  "model": "claude-sonnet-4-20250514",
-  "agentName": "@developer",
+  "start_date": "2026-03-05",
+  "end_date": "2026-03-05",
+  "user": "your@email.com",
+  "ticket_name": "",
+  "issue_key": "PROJ-123",
+  "account_key": "TD_DEVELOPMENT",
+  "start_time": "09:00:00",
+  "end_time": "09:15:00",
+  "duration_seconds": 900,
+  "tokens_used": 2800,
+  "tokens_remaining": "",
+  "story_points": "",
   "description": "Implemented webhook sender service",
-  "notes": ""
+  "notes": "",
+  "model": "anthropic/claude-sonnet-4-20250514",
+  "agent": "@developer",
+  "tokens_input": 1500,
+  "tokens_output": 800,
+  "tokens_reasoning": 0,
+  "tokens_cache_read": 500,
+  "tokens_cache_write": 0,
+  "cost": 0.027
 }
 ```
 
