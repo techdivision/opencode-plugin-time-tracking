@@ -7,7 +7,7 @@ import { dirname } from "path"
 
 import type { CsvEntryData } from "../types/CsvEntryData"
 import type { TimeTrackingConfig } from "../types/TimeTrackingConfig"
-import type { WriterService } from "../types/WriterService"
+import type { WriteResult, WriterService } from "../types/WriterService"
 
 import { CsvFormatter } from "../utils/CsvFormatter"
 
@@ -195,6 +195,7 @@ export class CsvWriter implements WriterService {
    * Writes a time tracking entry to the CSV file.
    *
    * @param data - The entry data to write
+   * @returns Result indicating success or failure
    *
    * @remarks
    * Assumes `ensureHeader()` was called at startup.
@@ -202,7 +203,7 @@ export class CsvWriter implements WriterService {
    *
    * @example
    * ```typescript
-   * await csvWriter.write({
+   * const result = await csvWriter.write({
    *   id: crypto.randomUUID(),
    *   userEmail: "user@example.com",
    *   ticket: "PROJ-123",
@@ -217,51 +218,65 @@ export class CsvWriter implements WriterService {
    *   agent: "@developer",
    *   accountKey: "ACCOUNT-1"
    * })
+   *
+   * if (!result.success) {
+   *   console.error(`CSV write failed: ${result.error}`)
+   * }
    * ```
    */
-  async write(data: CsvEntryData): Promise<void> {
-    const csvPath = this.resolvePath()
-    const file = Bun.file(csvPath)
-    const exists = await file.exists()
+  async write(data: CsvEntryData): Promise<WriteResult> {
+    try {
+      const csvPath = this.resolvePath()
+      const file = Bun.file(csvPath)
+      const exists = await file.exists()
 
-    const totalTokens =
-      data.tokenUsage.input + data.tokenUsage.output + data.tokenUsage.reasoning
+      const totalTokens =
+        data.tokenUsage.input + data.tokenUsage.output + data.tokenUsage.reasoning
 
-    const fields = [
-      data.id,
-      CsvFormatter.formatDate(data.startTime),
-      CsvFormatter.formatDate(data.endTime),
-      data.userEmail,
-      "",
-      data.ticket ?? "",
-      data.accountKey,
-      CsvFormatter.formatTime(data.startTime),
-      CsvFormatter.formatTime(data.endTime),
-      data.durationSeconds.toString(),
-      totalTokens.toString(),
-      "",
-      "",
-      CsvFormatter.escape(data.description),
-      CsvFormatter.escape(data.notes),
-      data.model ?? "",
-      data.agent ?? "",
-      // Extended columns (v0.8.0+)
-      data.tokenUsage.input.toString(),
-      data.tokenUsage.output.toString(),
-      data.tokenUsage.reasoning.toString(),
-      data.tokenUsage.cacheRead.toString(),
-      data.tokenUsage.cacheWrite.toString(),
-      data.cost.toFixed(6),
-    ]
+      const fields = [
+        data.id,
+        CsvFormatter.formatDate(data.startTime),
+        CsvFormatter.formatDate(data.endTime),
+        data.userEmail,
+        "",
+        data.ticket ?? "",
+        data.accountKey,
+        CsvFormatter.formatTime(data.startTime),
+        CsvFormatter.formatTime(data.endTime),
+        data.durationSeconds.toString(),
+        totalTokens.toString(),
+        "",
+        "",
+        CsvFormatter.escape(data.description),
+        CsvFormatter.escape(data.notes),
+        data.model ?? "",
+        data.agent ?? "",
+        // Extended columns (v0.8.0+)
+        data.tokenUsage.input.toString(),
+        data.tokenUsage.output.toString(),
+        data.tokenUsage.reasoning.toString(),
+        data.tokenUsage.cacheRead.toString(),
+        data.tokenUsage.cacheWrite.toString(),
+        data.cost.toFixed(6),
+      ]
 
-    const csvLine = fields.map((f) => `"${f}"`).join(",")
+      const csvLine = fields.map((f) => `"${f}"`).join(",")
 
-    if (!exists) {
-      // Fallback: create file with header if ensureHeader() wasn't called
-      await Bun.write(csvPath, CSV_HEADER + "\n" + csvLine + "\n")
-    } else {
-      const content = await file.text()
-      await Bun.write(csvPath, content + csvLine + "\n")
+      if (!exists) {
+        // Fallback: create file with header if ensureHeader() wasn't called
+        await Bun.write(csvPath, CSV_HEADER + "\n" + csvLine + "\n")
+      } else {
+        const content = await file.text()
+        await Bun.write(csvPath, content + csvLine + "\n")
+      }
+
+      return { writer: "csv", success: true }
+    } catch (error) {
+      return {
+        writer: "csv",
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      }
     }
   }
 }

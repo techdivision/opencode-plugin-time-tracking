@@ -68,11 +68,6 @@ export const plugin: Plugin = async ({
   const ticketExtractor = new TicketExtractor(client, config.valid_projects)
   const ticketResolver = new TicketResolver(config, ticketExtractor)
 
-  // Set up toast handler for webhook error notifications
-  webhookSender.setToastHandler(async (message, variant) => {
-    await client.tui.showToast({ body: { message, variant } })
-  })
-
   // Writers are called in order: CSV first (backup), then webhook
   const writers: WriterService[] = [csvWriter, webhookSender]
 

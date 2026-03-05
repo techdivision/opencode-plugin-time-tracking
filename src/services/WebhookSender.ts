@@ -3,17 +3,9 @@
  */
 
 import type { CsvEntryData } from "../types/CsvEntryData"
-import type { WriterService } from "../types/WriterService"
+import type { WriteResult, WriterService } from "../types/WriterService"
 
 import { CsvFormatter } from "../utils/CsvFormatter"
-
-/**
- * Toast handler function type for displaying notifications.
- */
-type ToastHandler = (
-  message: string,
-  variant: "success" | "error" | "info"
-) => Promise<void>
 
 /**
  * Sends time tracking entries to a webhook endpoint.
@@ -21,13 +13,13 @@ type ToastHandler = (
  * @remarks
  * Implements the WriterService interface to allow seamless integration
  * with other writers (e.g., CsvWriter). Errors are handled internally
- * and displayed via toast notifications if a handler is configured.
+ * and returned as part of the WriteResult.
  *
  * Configuration via environment variables:
  * - `TT_WEBHOOK_URL` - The webhook endpoint URL (required for webhook to be active)
  * - `TT_WEBHOOK_BEARER_TOKEN` - Optional Bearer token for authentication
  *
- * If `TT_WEBHOOK_URL` is not set, the webhook is silently disabled.
+ * If `TT_WEBHOOK_URL` is not set, the webhook is silently skipped (returns success).
  *
  * @example
  * ```typescript
@@ -39,26 +31,14 @@ type ToastHandler = (
  * @example
  * ```typescript
  * const webhookSender = new WebhookSender()
- * webhookSender.setToastHandler(async (msg, variant) => {
- *   await client.tui.showToast({ body: { message: msg, variant } })
- * })
+ * const result = await webhookSender.write(entryData)
  *
- * await webhookSender.write(entryData)
+ * if (!result.success) {
+ *   console.error(`Webhook failed: ${result.error}`)
+ * }
  * ```
  */
 export class WebhookSender implements WriterService {
-  /** Optional toast handler for error notifications */
-  private showToast: ToastHandler | null = null
-
-  /**
-   * Sets the toast handler for error notifications.
-   *
-   * @param handler - Function to display toast messages
-   */
-  setToastHandler(handler: ToastHandler): void {
-    this.showToast = handler
-  }
-
   /**
    * Checks if the webhook is configured and enabled.
    *
@@ -72,22 +52,19 @@ export class WebhookSender implements WriterService {
    * Sends entry data to the configured webhook.
    *
    * @param data - The entry data to send
+   * @returns Result indicating success or failure
    *
    * @remarks
    * The payload structure matches the CSV format with all 23 fields.
-   * If `TT_WEBHOOK_URL` is not set, the method returns silently.
+   * If `TT_WEBHOOK_URL` is not set, returns success (skip is not an error).
    * If `TT_WEBHOOK_BEARER_TOKEN` is set, it's included as Bearer token.
-   * Errors are caught and displayed via toast if a handler is configured.
    */
-  async write(data: CsvEntryData): Promise<void> {
+  async write(data: CsvEntryData): Promise<WriteResult> {
     const webhookUrl = process.env.TT_WEBHOOK_URL
 
     if (!webhookUrl) {
-      // Webhook not configured, silently skip
-      if (this.showToast) {
-        await this.showToast("Webhook: TT_WEBHOOK_URL not configured", "info")
-      }
-      return
+      // Webhook not configured, skip silently (not an error)
+      return { writer: "webhook", success: true }
     }
 
     const bearerToken = process.env.TT_WEBHOOK_BEARER_TOKEN
@@ -136,12 +113,20 @@ export class WebhookSender implements WriterService {
         body: JSON.stringify(payload),
       })
 
-      if (this.showToast) {
-        await this.showToast(`Webhook: Sent (${response.status})`, "success")
+      if (!response.ok) {
+        return {
+          writer: "webhook",
+          success: false,
+          error: `HTTP ${response.status}`,
+        }
       }
-    } catch {
-      if (this.showToast) {
-        await this.showToast("Webhook: Failed to send time entry", "error")
+
+      return { writer: "webhook", success: true }
+    } catch (error) {
+      return {
+        writer: "webhook",
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       }
     }
   }
