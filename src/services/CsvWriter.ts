@@ -2,12 +2,12 @@
  * @fileoverview CSV writer for exporting time tracking data.
  */
 
-import { randomUUID } from "crypto"
 import { mkdir } from "fs/promises"
 import { dirname } from "path"
 
 import type { CsvEntryData } from "../types/CsvEntryData"
 import type { TimeTrackingConfig } from "../types/TimeTrackingConfig"
+import type { WriterService } from "../types/WriterService"
 
 import { CsvFormatter } from "../utils/CsvFormatter"
 
@@ -69,7 +69,7 @@ function padCsvLine(
  * The CSV format is compatible with Jira/Tempo worklog imports.
  * The file path can be absolute, relative to the project, or use `~/` for home directory.
  */
-export class CsvWriter {
+export class CsvWriter implements WriterService {
   /** Plugin configuration */
   private config: TimeTrackingConfig
 
@@ -203,6 +203,8 @@ export class CsvWriter {
    * @example
    * ```typescript
    * await csvWriter.write({
+   *   id: crypto.randomUUID(),
+   *   userEmail: "user@example.com",
    *   ticket: "PROJ-123",
    *   startTime: Date.now() - 3600000,
    *   endTime: Date.now(),
@@ -210,7 +212,10 @@ export class CsvWriter {
    *   description: "Implemented feature X",
    *   notes: "Auto-tracked: read(5x), edit(3x)",
    *   tokenUsage: { input: 1000, output: 500, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
-   *   cost: 0.0234
+   *   cost: 0.0234,
+   *   model: "anthropic/claude-opus-4",
+   *   agent: "@developer",
+   *   accountKey: "ACCOUNT-1"
    * })
    * ```
    */
@@ -223,10 +228,10 @@ export class CsvWriter {
       data.tokenUsage.input + data.tokenUsage.output + data.tokenUsage.reasoning
 
     const fields = [
-      randomUUID(),
+      data.id,
       CsvFormatter.formatDate(data.startTime),
       CsvFormatter.formatDate(data.endTime),
-      this.config.user_email,
+      data.userEmail,
       "",
       data.ticket ?? "",
       data.accountKey,
