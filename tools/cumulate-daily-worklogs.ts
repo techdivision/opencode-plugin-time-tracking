@@ -155,9 +155,15 @@ export default tool({
       }
 
       const startDate = fields[1]
+      const notes = fields[14]
 
       // Filter by date
       if (startDate !== args.date) {
+        continue
+      }
+
+      // Filter: Only include manual entries for booking proposal
+      if (notes !== "Manual entry") {
         continue
       }
 

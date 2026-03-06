@@ -106,8 +106,8 @@ Timestamp im Format `YYYYMMDDHHmmss` (aktueller Zeitpunkt).
 ```
 
 **Beispiele:**
-- `t.wagner@techdivision.com-booking_proposal-2026-03-01-20260301193100.csv`
-- `t.wagner@techdivision.com-time_tracking-20260301193100.csv`
+- `j.doe@example.com-booking_proposal-2026-03-01-20260301193100.csv`
+- `j.doe@example.com-time_tracking-20260301193100.csv`
 
 ### 4. Upload durchfuehren
 

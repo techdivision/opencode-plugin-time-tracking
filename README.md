@@ -413,14 +413,14 @@ All sync-related secrets should be configured in `.opencode/.env` (loaded by `op
 Example `.opencode/.env`:
 
 ```env
-OPENCODE_USER_EMAIL=t.wagner@techdivision.com
+OPENCODE_USER_EMAIL=j.doe@example.com
 
 # Webhook Integration (optional)
 TT_WEBHOOK_URL=https://your-api.example.com/time-tracking
 TT_WEBHOOK_BEARER_TOKEN=your-secret-token
 
 # Google Calendar Sync
-TT_SOURCE_CALENDAR_ID=t.wagner@techdivision.com
+TT_SOURCE_CALENDAR_ID=j.doe@example.com
 TT_BOOKING_CALENDAR_ID=c_abc123@group.calendar.google.com
 
 # Google Drive Sync
