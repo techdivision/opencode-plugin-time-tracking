@@ -13,7 +13,7 @@ import type { MessagePartUpdatedProperties } from "../types/MessagePartUpdatedPr
 import type { MessageWithParts } from "../types/MessageWithParts"
 import type { OpencodeClient } from "../types/OpencodeClient"
 import type { TimeTrackingConfig } from "../types/TimeTrackingConfig"
-import type { WriterService } from "../types/WriterService"
+import type { WriteResult, WriterService } from "../types/WriterService"
 
 import { AgentMatcher } from "../utils/AgentMatcher"
 import { DescriptionGenerator } from "../utils/DescriptionGenerator"
@@ -246,22 +246,28 @@ export function createEventHook(
       }
 
       // Call all writers in order (CSV first, then webhook, etc.)
-      // Each writer handles its own errors internally
+      // Collect results for combined status reporting
+      const results: WriteResult[] = []
       for (const writer of writers) {
-        try {
-          await writer.write(entryData)
-        } catch {
-          // Individual writer errors are handled internally
-          // Continue with other writers
-        }
+        const result = await writer.write(entryData)
+        results.push(result)
       }
 
+      // Build combined toast message with writer status
       const minutes = Math.round(durationSeconds / 60)
+      const failedWriters = results.filter((r) => !r.success)
+
+      let message = `Time tracked: ${minutes} min, ${totalTokens} tokens${resolved.ticket ? ` for ${resolved.ticket}` : ""}`
+
+      if (failedWriters.length > 0) {
+        const failedNames = failedWriters.map((r) => r.writer).join(", ")
+        message += ` (${failedNames}: failed)`
+      }
 
       await client.tui.showToast({
         body: {
-          message: `Time tracked: ${minutes} min, ${totalTokens} tokens${resolved.ticket ? ` for ${resolved.ticket}` : ""}`,
-          variant: "success",
+          message,
+          variant: failedWriters.length > 0 ? "warning" : "success",
         },
       })
     }

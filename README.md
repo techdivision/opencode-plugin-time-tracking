@@ -359,10 +359,18 @@ The webhook receives a POST request with `Content-Type: application/json`. The p
 The plugin uses a `WriterService` interface for output. You can implement custom writers by following the interface:
 
 ```typescript
+interface WriteResult {
+  writer: string;      // e.g., "csv", "webhook"
+  success: boolean;
+  error?: string;      // Only present if success === false
+}
+
 interface WriterService {
-  write(data: CsvEntryData): Promise<void>;
+  write(data: CsvEntryData): Promise<WriteResult>;
 }
 ```
+
+Each writer returns a `WriteResult` indicating success or failure. The `EventHook` collects all results and shows a combined toast notification (e.g., "Time tracked: 5 min, 1000 tokens for PROJ-123 (webhook: failed)").
 
 ## Sync Features
 
@@ -405,14 +413,14 @@ All sync-related secrets should be configured in `.opencode/.env` (loaded by `op
 Example `.opencode/.env`:
 
 ```env
-OPENCODE_USER_EMAIL=t.wagner@techdivision.com
+OPENCODE_USER_EMAIL=j.doe@example.com
 
 # Webhook Integration (optional)
 TT_WEBHOOK_URL=https://your-api.example.com/time-tracking
 TT_WEBHOOK_BEARER_TOKEN=your-secret-token
 
 # Google Calendar Sync
-TT_SOURCE_CALENDAR_ID=t.wagner@techdivision.com
+TT_SOURCE_CALENDAR_ID=j.doe@example.com
 TT_BOOKING_CALENDAR_ID=c_abc123@group.calendar.google.com
 
 # Google Drive Sync
