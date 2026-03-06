@@ -53,5 +53,5 @@ If `TT_SOURCE_CALENDAR_ID` is set, calendar events are merged into the booking p
 
 After generating the CSV, you can sync to various targets:
 - `/time-tracking.sync-calendar` - Sync to Google Calendar
-- `/time-tracking.sync-drive` - Sync to Google Sheets (not yet implemented)
-- `/time-tracking.sync-tempo` - Sync to JIRA Tempo (not yet implemented)
+- `/time-tracking.sync-drive` - Upload CSV to Google Drive
+- `/time-tracking.sync-tempo` - Sync to JIRA Tempo worklogs
