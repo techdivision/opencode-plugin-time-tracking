@@ -2,3 +2,4 @@ node_modules/
 .opencode/
 .DS_Store
 bun.lock
+tmp/
