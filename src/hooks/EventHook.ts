@@ -8,6 +8,7 @@ import type { AssistantMessage, Event, Message } from "@opencode-ai/sdk"
 
 import type { SessionManager } from "../services/SessionManager"
 import type { TicketResolver } from "../services/TicketResolver"
+import type { TitleGenerator } from "../services/TitleGenerator"
 import type { CsvEntryData } from "../types/CsvEntryData"
 import type { MessagePartUpdatedProperties } from "../types/MessagePartUpdatedProperties"
 import type { MessageWithParts } from "../types/MessageWithParts"
@@ -72,6 +73,7 @@ async function extractSummaryTitle(
  * @param client - The OpenCode SDK client
  * @param ticketResolver - The ticket resolver instance
  * @param config - The time tracking configuration
+ * @param titleGenerator - The LLM-based title generator instance
  * @returns The event hook function
  *
  * @remarks
@@ -88,7 +90,7 @@ async function extractSummaryTitle(
  * ```typescript
  * const writers: WriterService[] = [csvWriter, webhookSender]
  * const hooks: Hooks = {
- *   event: createEventHook(sessionManager, writers, client, ticketResolver, config),
+ *   event: createEventHook(sessionManager, writers, client, ticketResolver, config, titleGenerator),
  * }
  * ```
  */
@@ -97,7 +99,8 @@ export function createEventHook(
   writers: WriterService[],
   client: OpencodeClient,
   ticketResolver: TicketResolver,
-  config: TimeTrackingConfig
+  config: TimeTrackingConfig,
+  titleGenerator: TitleGenerator
 ) {
   return async ({ event }: { event: Event }): Promise<void> => {
     // Track model and agent from assistant messages
@@ -194,10 +197,27 @@ export function createEventHook(
       const endTime = Date.now()
       const durationSeconds = Math.round((endTime - session.startTime) / 1000)
 
-      // Try to get summary title from messages, fallback to generated description
-      const summaryTitle = await extractSummaryTitle(client, sessionID)
-      const description =
-        summaryTitle || DescriptionGenerator.generate(session.activities)
+      // Generate description: LLM title + activity summary
+      const activitySummary = DescriptionGenerator.generate(session.activities)
+
+      // Try to get a meaningful title via LLM or OpenCode summary
+      let title = await extractSummaryTitle(client, sessionID)
+
+      if (!title) {
+        try {
+          title = await Promise.race([
+            titleGenerator.generate(sessionID),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+          ])
+        } catch {
+          title = null
+        }
+      }
+
+      // Combine: "LLM title | activity summary" or just "activity summary"
+      const description = title
+        ? `${title} | ${activitySummary}`
+        : activitySummary
 
       const toolSummary = DescriptionGenerator.generateToolSummary(
         session.activities
@@ -267,6 +287,10 @@ export function createEventHook(
       const failedWriters = results.filter((r) => !r.success)
 
       let message = `Time tracked: ${minutes} min, ${totalTokens} tokens${resolved.ticket ? ` for ${resolved.ticket}` : ""}`
+
+      if (!titleGenerator.isAvailable) {
+        message += " (title generation NOT available)"
+      }
 
       if (failedWriters.length > 0) {
         const failedNames = failedWriters.map((r) => r.writer).join(", ")

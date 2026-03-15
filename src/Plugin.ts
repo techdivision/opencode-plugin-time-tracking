@@ -14,6 +14,7 @@ import { CsvWriter } from "./services/CsvWriter"
 import { SessionManager } from "./services/SessionManager"
 import { TicketExtractor } from "./services/TicketExtractor"
 import { TicketResolver } from "./services/TicketResolver"
+import { TitleGenerator } from "./services/TitleGenerator"
 import { WebhookSender } from "./services/WebhookSender"
 import { createEventHook } from "./hooks/EventHook"
 import { createToolExecuteAfterHook } from "./hooks/ToolExecuteAfterHook"
@@ -67,6 +68,20 @@ export const plugin: Plugin = async ({
   const webhookSender = new WebhookSender()
   const ticketExtractor = new TicketExtractor(client, config.valid_projects)
   const ticketResolver = new TicketResolver(config, ticketExtractor)
+  const configDir = `${directory}/.opencode`
+  const titleGenerator = new TitleGenerator(client, config, configDir)
+
+  // Check API reachability in background (never blocks plugin startup)
+  titleGenerator.checkAvailability().then(() => {
+    if (!titleGenerator.isAvailable) {
+      client.tui.showToast({
+        body: {
+          message: `Title generation: ${titleGenerator.unavailableInfo}`,
+          variant: "warning",
+        },
+      }).catch(() => {})
+    }
+  }).catch(() => {})
 
   // Writers are called in order: CSV first (backup), then webhook
   const writers: WriterService[] = [csvWriter, webhookSender]
@@ -79,7 +94,7 @@ export const plugin: Plugin = async ({
       sessionManager,
       ticketExtractor
     ),
-    event: createEventHook(sessionManager, writers, client, ticketResolver, config),
+    event: createEventHook(sessionManager, writers, client, ticketResolver, config, titleGenerator),
   }
 
   return hooks

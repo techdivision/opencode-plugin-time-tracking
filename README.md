@@ -199,6 +199,67 @@ Skip time tracking for specific agents:
 }
 ```
 
+#### Title Generation
+
+The plugin can generate meaningful worklog descriptions via an LLM instead of generic tool-count summaries (e.g., `"48 tool call(s)"`). The generated description is prepended to the activity summary: `"COPSPA-65: Startup-Hang fixen und Provider-Aufloesung auf Config umstellen | 3 file edit(s), 2 file read(s)"`.
+
+The LLM receives the last 3 conversation turns (user + assistant) as context to understand what was worked on. Both `model` and `api_url` are required. Without configuration, title generation is inactive and the plugin falls back to activity summaries.
+
+**Ollama (local or remote, no API key required):**
+
+```json
+{
+  "time_tracking": {
+    "title_generation": {
+      "model": "ollama/mistral:latest",
+      "api_url": "http://localhost:11434/v1"
+    }
+  }
+}
+```
+
+**With locale and custom prompt:**
+
+```json
+{
+  "time_tracking": {
+    "title_generation": {
+      "model": "ollama/llama3:8b",
+      "api_url": "http://localhost:11434/v1",
+      "locale": "en-US",
+      "prompt": "time_tracking/prompts/title.txt"
+    }
+  }
+}
+```
+
+**Explicitly disabled:**
+
+```json
+{
+  "time_tracking": {
+    "title_generation": {
+      "enabled": false
+    }
+  }
+}
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `model` | Yes | — | Model in `"provider/model"` or plain `"model"` format |
+| `api_url` | Yes | — | API base URL (`/chat/completions` is appended) |
+| `api_key` | No | — | API key, supports `{env:VAR_NAME}` syntax |
+| `locale` | No | `de-DE` | Output language (BCP 47 tag) |
+| `enabled` | No | `true` | Set to `false` to disable |
+| `prompt` | No | Built-in | Path to custom prompt file (relative to `.opencode/`) |
+| `timeout_ms` | No | `5000` | LLM request timeout in milliseconds |
+| `max_chars` | No | `240` | Maximum description length |
+
+Custom prompt files support `{{LOCALE}}` and `{{MAX_CHARS}}` placeholders that are replaced at runtime with the configured values.
+
+All requests use the Chat Completions API format. This covers Ollama, OpenAI, Mistral, Groq, and any compatible provider.
+
 #### Project Whitelist
 
 Restrict ticket detection to specific JIRA projects:
@@ -223,6 +284,10 @@ Restrict ticket detection to specific JIRA projects:
     "global_default": {
       "issue_key": "PROJ-100",
       "account_key": "TD_GENERAL"
+    },
+    "title_generation": {
+      "model": "ollama/mistral:latest",
+      "api_url": "http://localhost:11434/v1"
     },
     "agent_defaults": {
       "@implementation": {
@@ -510,7 +575,7 @@ Add sync endpoints to your `.opencode/opencode-project.json`:
 
 | Event | When triggered |
 |-------|----------------|
-| `session.idle` | After each complete AI response (including all tool calls) |
+| `session.status` (idle) | After each complete AI response (including all tool calls) |
 
 ## Development
 

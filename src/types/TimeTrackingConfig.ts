@@ -4,6 +4,7 @@
 
 import type { AgentDefaultConfig } from "./AgentDefaultConfig"
 import type { GlobalDefaultConfig } from "./GlobalDefaultConfig"
+import type { TitleGenerationConfig } from "./TitleGenerationConfig"
 
 /**
  * Time tracking configuration as stored in `.opencode/opencode-project.json`.
@@ -61,6 +62,15 @@ export interface TimeTrackingJsonConfig {
    * Project keys should be uppercase with at least 2 letters (e.g., "PROJ", "SOSO").
    */
   valid_projects?: string[]
+
+  /**
+   * LLM-based title generation configuration.
+   *
+   * @remarks
+   * When not set or partially configured, smart defaults are used
+   * and title generation is enabled. Set `enabled: false` to disable.
+   */
+  title_generation?: TitleGenerationConfig
 }
 
 /**
