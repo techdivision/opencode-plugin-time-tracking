@@ -79,7 +79,7 @@ async function extractSummaryTitle(
  *
  * 1. **message.updated** - Tracks model from assistant messages
  * 2. **message.part.updated** - Tracks token usage from step-finish parts
- * 3. **session.idle** - Finalizes and exports the session via all writers
+ * 3. **session.status** (idle) - Finalizes and exports the session via all writers
  *
  * Writers are called in order. Each writer handles its own errors internally,
  * so a failure in one writer does not affect others.
@@ -159,9 +159,18 @@ export function createEventHook(
       return
     }
 
-    // Handle session idle events (only log on idle, not on deleted)
-    if (event.type === "session.idle") {
-      const props = event.properties as { sessionID?: string }
+    // Handle session status events (only act on idle, not on busy/retry)
+    if (event.type === "session.status") {
+      const props = event.properties as {
+        sessionID?: string
+        status?: { type: string }
+      }
+
+      // Only process idle status transitions
+      if (props.status?.type !== "idle") {
+        return
+      }
+
       const sessionID = props.sessionID
 
       if (!sessionID) {
