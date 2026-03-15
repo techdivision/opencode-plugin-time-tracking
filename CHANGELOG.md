@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] - 2026-03-15
 
 ### Added
 
@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Plugin startup hang**: Removed SDK calls (`client.config.get()`, `client.config.providers()`) from plugin initialization that caused OpenCode to freeze during startup
 - LLM response cleaning: strips common hallucinated prefixes (`"Ticket: N/A Description:"`, `"Title:"`, etc.) and wrapping quotes
+- Agent names in CSV now consistently written without `@` prefix
 
 ## [1.3.3] - 2026-03-15
 
