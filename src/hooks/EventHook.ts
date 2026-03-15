@@ -271,7 +271,7 @@ export function createEventHook(
         tokenUsage: session.tokenUsage,
         cost: session.cost,
         model: modelString,
-        agent: resolved.primaryAgent ?? agentString,
+        agent: (resolved.primaryAgent ?? agentString)?.replace(/^@/, "") ?? null,
       }
 
       // Call all writers in order (CSV first, then webhook, etc.)
