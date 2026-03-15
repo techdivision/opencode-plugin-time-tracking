@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **LLM-based worklog descriptions** via direct `fetch()` to configured Chat Completions API (COPSPA-65)
+- New `title_generation` config section with fields: `model`, `api_url`, `api_key`, `prompt`, `timeout_ms`, `max_chars`, `locale`, `enabled`
+- `locale` config field (default: `de-DE`) to control output language of generated descriptions
+- `TitleGenerator` service with synchronous config-based provider resolution (no SDK calls to OpenCode)
+- `ProviderAdapter` for Chat Completions API request building and response parsing
+- `MessageExtractor` utility to extract last 3 conversation turns (user + assistant) as LLM context
+- Health-check at startup (fire-and-forget) with toast notification when API is not reachable
+- Toast hint "(title generation NOT available)" on each tracking event when not configured
+- Support for `{env:VAR_NAME}` syntax in `api_key` config field
+- Support for custom prompt files via `prompt` config field with `{{LOCALE}}` and `{{MAX_CHARS}}` placeholders
+- Support for plain model format (e.g., `"llama3:8b"`) in addition to `"provider/model"` format
+
+### Changed
+
+- Worklog descriptions now use format `"LLM Description | Activity Summary"` when title generation is active
+- Default `max_chars` for generated descriptions is 240
+- Plugin startup: provider resolution is synchronous in constructor (immediately available)
+- Plugin startup: health-check runs as fire-and-forget (never blocks plugin initialization)
+- LLM context uses last 3 conversation turns instead of first user prompt (fixes wrong context in long sessions)
+
+### Fixed
+
+- **Plugin startup hang**: Removed SDK calls (`client.config.get()`, `client.config.providers()`) from plugin initialization that caused OpenCode to freeze during startup
+- LLM response cleaning: strips common hallucinated prefixes (`"Ticket: N/A Description:"`, `"Title:"`, etc.) and wrapping quotes
+
+## [1.3.3] - 2026-03-15
+
+### Fixed
+
+- Migrated from deprecated `session.idle` event to `session.status` event (COPSPA-66)
+- Only `status.type === "idle"` triggers time entry export; `busy` and `retry` events are ignored
+
 ## [1.3.2] - 2026-03-06
 
 ### Fixed

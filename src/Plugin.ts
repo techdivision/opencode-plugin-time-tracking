@@ -71,17 +71,17 @@ export const plugin: Plugin = async ({
   const configDir = `${directory}/.opencode`
   const titleGenerator = new TitleGenerator(client, config, configDir)
 
-  // Resolve provider and check API reachability (once at startup)
-  await titleGenerator.checkAvailability()
-
-  if (!titleGenerator.isAvailable) {
-    await client.tui.showToast({
-      body: {
-        message: `Title generation: ${titleGenerator.unavailableInfo}`,
-        variant: "warning",
-      },
-    })
-  }
+  // Check API reachability in background (never blocks plugin startup)
+  titleGenerator.checkAvailability().then(() => {
+    if (!titleGenerator.isAvailable) {
+      client.tui.showToast({
+        body: {
+          message: `Title generation: ${titleGenerator.unavailableInfo}`,
+          variant: "warning",
+        },
+      }).catch(() => {})
+    }
+  }).catch(() => {})
 
   // Writers are called in order: CSV first (backup), then webhook
   const writers: WriterService[] = [csvWriter, webhookSender]

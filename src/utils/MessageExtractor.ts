@@ -1,74 +1,105 @@
 /**
- * @fileoverview Extracts user prompt text from session messages.
+ * @fileoverview Extracts conversation context from session messages.
  */
 
 import type { MessageWithParts } from "../types/MessageWithParts"
 
 /**
- * Maximum characters to extract from user prompts.
+ * Number of recent conversation turns to extract.
  *
  * @remarks
- * 500 characters is sufficient context for title generation
- * while keeping token usage minimal (~125 tokens).
+ * A turn = one user message + the following assistant response.
  */
-const MAX_PROMPT_LENGTH = 500
+const RECENT_TURNS = 3
 
 /**
- * Extracts user prompt text from session messages for title generation.
+ * Maximum characters for a single assistant response in the context.
  *
  * @remarks
- * Finds the first user message and extracts non-synthetic text parts.
- * The result is truncated to {@link MAX_PROMPT_LENGTH} characters to
- * minimize token usage in the title generation LLM call.
+ * Assistant responses can be very long. Truncating keeps the context
+ * balanced between user intent and assistant work description.
+ */
+const MAX_ASSISTANT_CHARS = 500
+
+/**
+ * Extracts conversation context from session messages for title generation.
+ *
+ * @remarks
+ * Collects the last {@link RECENT_TURNS} conversation turns (user prompt +
+ * first assistant response) to provide meaningful context for worklog
+ * description generation.
  */
 export class MessageExtractor {
   /**
-   * Extracts the first user prompt text from a list of messages.
+   * Extracts the last conversation turns from session messages.
    *
    * @param messages - Array of messages with their parts
-   * @returns The extracted user prompt text, or `null` if no user text found
+   * @returns The extracted conversation context, or `null` if no content found
    *
    * @remarks
-   * - Finds the **first** user message (the initial prompt that defines the session)
-   * - Filters out synthetic parts (system-injected content like file contents)
-   * - Concatenates all text parts with newlines
-   * - Truncates to {@link MAX_PROMPT_LENGTH} characters
-   *
-   * @example
-   * ```typescript
-   * const prompt = MessageExtractor.extractFirstUserPrompt(messages)
-   * // Returns: "Fix the bug in EventHook.ts where session.idle..."
-   * ```
+   * Strategy: Scan from the end to find the last N user messages.
+   * For each user message, find the next assistant message that follows it.
+   * This gives clean user/assistant pairs regardless of how many
+   * intermediate messages exist.
    */
-  static extractFirstUserPrompt(
+  static extractConversationContext(
     messages: MessageWithParts[]
   ): string | null {
-    for (const message of messages) {
-      if (message.info.role !== "user") {
-        continue
+    // Step 1: Find indices of all user messages
+    const userIndices: number[] = []
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].info.role === "user") {
+        const text = MessageExtractor.extractText(messages[i])
+        if (text) {
+          userIndices.push(i)
+          if (userIndices.length >= RECENT_TURNS) break
+        }
       }
-
-      const textParts = message.parts
-        .filter((part) => part.type === "text" && !part.synthetic && part.text)
-        .map((part) => part.text as string)
-
-      if (textParts.length === 0) {
-        continue
-      }
-
-      const combined = textParts.join("\n").trim()
-
-      if (combined.length === 0) {
-        continue
-      }
-
-      if (combined.length > MAX_PROMPT_LENGTH) {
-        return combined.slice(0, MAX_PROMPT_LENGTH)
-      }
-
-      return combined
     }
 
-    return null
+    if (userIndices.length === 0) return null
+
+    // Step 2: For each user message, collect it + the first assistant response after it
+    const turns: string[] = []
+
+    // Process in chronological order (oldest first)
+    for (const idx of userIndices.reverse()) {
+      const userText = MessageExtractor.extractText(messages[idx])
+      if (userText) {
+        turns.push(`User: ${userText}`)
+      }
+
+      // Find first assistant response after this user message
+      for (let j = idx + 1; j < messages.length; j++) {
+        if (messages[j].info.role === "assistant") {
+          const assistantText = MessageExtractor.extractText(messages[j])
+          if (assistantText) {
+            const truncated = assistantText.length > MAX_ASSISTANT_CHARS
+              ? assistantText.slice(0, MAX_ASSISTANT_CHARS) + "..."
+              : assistantText
+            turns.push(`Assistant: ${truncated}`)
+            break
+          }
+        }
+        // Stop if we hit the next user message (no assistant response for this turn)
+        if (messages[j].info.role === "user") break
+      }
+    }
+
+    return turns.length > 0 ? turns.join("\n") : null
+  }
+
+  /**
+   * Extracts non-synthetic text content from a message.
+   */
+  private static extractText(message: MessageWithParts): string | null {
+    const textParts = message.parts
+      .filter((part) => part.type === "text" && !part.synthetic && part.text)
+      .map((part) => part.text as string)
+
+    if (textParts.length === 0) return null
+
+    const combined = textParts.join("\n").trim()
+    return combined.length > 0 ? combined : null
   }
 }

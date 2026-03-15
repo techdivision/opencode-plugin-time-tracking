@@ -6,10 +6,10 @@
  * Configuration for automatic title generation via LLM.
  *
  * @remarks
- * All fields are optional. When not configured, smart defaults are used
- * and title generation is enabled by default.
+ * Both `model` and `api_url` are required for title generation to be active.
+ * Without configuration, title generation is not available (graceful degradation).
  *
- * To disable title generation entirely, set `enabled: false`.
+ * To explicitly disable title generation, set `enabled: false`.
  */
 export interface TitleGenerationConfig {
   /**
@@ -23,21 +23,35 @@ export interface TitleGenerationConfig {
    * Model identifier in `"provider/model"` format.
    *
    * @remarks
-   * Falls back to `small_model` from OpenCode config, then `model`.
+   * Required for title generation. The provider prefix is informational only —
+   * all requests use the Chat Completions API format.
    *
-   * @example `"anthropic/claude-haiku-4-5"`, `"ollama/mistral:latest"`
+   * @example `"ollama/mistral:latest"`, `"openai/gpt-4o-mini"`
    */
   model?: string
+
+  /**
+   * API base URL for the LLM provider.
+   *
+   * @remarks
+   * Required for title generation. The Chat Completions endpoint
+   * (`/chat/completions`) is appended automatically.
+   *
+   * @example
+   * - Ollama local: `"http://localhost:11434/v1"`
+   * - Ollama remote: `"http://ai.tdservice.net:11434/v1"`
+   * - OpenAI: `"https://api.openai.com/v1"`
+   */
+  api_url?: string
 
   /**
    * API key for the LLM provider.
    *
    * @remarks
    * Supports `{env:VAR_NAME}` syntax for environment variable references.
-   * If not set, the key is resolved from the provider configuration.
-   * Can be `undefined` for local providers like Ollama that require no auth.
+   * Can be omitted for providers that require no auth (e.g., Ollama).
    *
-   * @example `"{env:ANTHROPIC_API_KEY}"`, `"sk-abc123"`
+   * @example `"{env:OPENAI_API_KEY}"`, `"sk-abc123"`
    */
   api_key?: string
 
@@ -56,14 +70,27 @@ export interface TitleGenerationConfig {
   /**
    * Request timeout in milliseconds.
    *
-   * @defaultValue `10000`
+   * @defaultValue `5000`
    */
   timeout_ms?: number
 
   /**
    * Maximum character length for generated titles.
    *
-   * @defaultValue `80`
+   * @defaultValue `240`
    */
   max_chars?: number
+
+  /**
+   * Output language for generated worklog descriptions.
+   *
+   * @remarks
+   * Controls which language the LLM uses for the generated text.
+   * Uses BCP 47 / IETF language tags.
+   *
+   * @defaultValue `"de-DE"`
+   *
+   * @example `"de-DE"`, `"en-US"`, `"fr-FR"`
+   */
+  locale?: string
 }
