@@ -35,6 +35,18 @@ export interface ResolvedTicketInfo {
   accountKey: string
 
   /**
+   * Resolved Atlassian account email for Tempo worklog attribution.
+   *
+   * @remarks
+   * Resolution priority:
+   * 1. Direct agent's author_email
+   * 2. Primary agent's author_email (if agent is subagent)
+   * 3. Global default author_email
+   * 4. config.user_email (human user books themselves)
+   */
+  authorEmail: string
+
+  /**
    * Primary agent name for CSV recording, or `null` if no mapping exists.
    *
    * @remarks

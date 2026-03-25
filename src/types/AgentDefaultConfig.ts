@@ -28,6 +28,19 @@ export interface AgentDefaultConfig {
   account_key?: string
 
   /**
+   * Atlassian account email for Tempo worklog attribution.
+   *
+   * @remarks
+   * Determines under whose name the worklog appears in Tempo
+   * when this agent is active. If not set, falls back to
+   * primary agent's author_email, then global_default.author_email,
+   * then config.user_email (human user books themselves).
+   *
+   * @example "claude-code@techdivision.com"
+   */
+  author_email?: string
+
+  /**
    * Subagents that inherit this agent's issue_key and account_key as fallback.
    *
    * @remarks

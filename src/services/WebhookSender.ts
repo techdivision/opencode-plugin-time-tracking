@@ -96,6 +96,7 @@ export class WebhookSender implements WriterService {
       tokens_cache_read: data.tokenUsage.cacheRead,
       tokens_cache_write: data.tokenUsage.cacheWrite,
       cost: data.cost,
+      author_email: data.authorEmail,
     }
 
     const headers: Record<string, string> = {

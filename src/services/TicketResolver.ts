@@ -75,6 +75,7 @@ export class TicketResolver {
       return {
         ticket: contextTicket,
         accountKey: this.resolveAccountKey(agentName, primaryAgentKey),
+        authorEmail: this.resolveAuthorEmail(agentName, primaryAgentKey),
         primaryAgent: primaryAgentKey,
       }
     }
@@ -86,6 +87,7 @@ export class TicketResolver {
       return {
         ticket: this.config.agent_defaults![directAgentKey].issue_key,
         accountKey: this.resolveAccountKey(directAgentKey, primaryAgentKey),
+        authorEmail: this.resolveAuthorEmail(directAgentKey, primaryAgentKey),
         primaryAgent: primaryAgentKey,
       }
     }
@@ -95,6 +97,7 @@ export class TicketResolver {
       return {
         ticket: this.config.agent_defaults![primaryAgentKey].issue_key,
         accountKey: this.resolveAccountKey(null, primaryAgentKey),
+        authorEmail: this.resolveAuthorEmail(null, primaryAgentKey),
         primaryAgent: primaryAgentKey,
       }
     }
@@ -104,6 +107,7 @@ export class TicketResolver {
       return {
         ticket: this.config.global_default.issue_key,
         accountKey: this.resolveAccountKey(agentName, null),
+        authorEmail: this.resolveAuthorEmail(agentName, null),
         primaryAgent: primaryAgentKey,
       }
     }
@@ -112,6 +116,7 @@ export class TicketResolver {
     return {
       ticket: null,
       accountKey: this.resolveAccountKey(agentName, null),
+      authorEmail: this.resolveAuthorEmail(agentName, null),
       primaryAgent: primaryAgentKey,
     }
   }
@@ -222,5 +227,48 @@ export class TicketResolver {
 
     // 3. Global default account_key (required)
     return this.config.global_default.account_key
+  }
+
+  /**
+   * Resolves author email using fallback hierarchy.
+   *
+   * @param directAgentKey - The direct agent config key, or `null`
+   * @param primaryAgentKey - The primary agent config key, or `null`
+   * @returns Resolved Atlassian account email for Tempo worklog attribution
+   *
+   * @remarks
+   * Fallback hierarchy:
+   * 1. Direct agent's author_email
+   * 2. Primary agent's author_email
+   * 3. Global default author_email
+   * 4. config.user_email (human user books themselves)
+   */
+  private resolveAuthorEmail(
+    directAgentKey: string | null,
+    primaryAgentKey: string | null
+  ): string {
+    // 1. Direct agent-specific author_email
+    if (
+      directAgentKey &&
+      this.config.agent_defaults?.[directAgentKey]?.author_email
+    ) {
+      return this.config.agent_defaults[directAgentKey].author_email!
+    }
+
+    // 2. Primary agent's author_email
+    if (
+      primaryAgentKey &&
+      this.config.agent_defaults?.[primaryAgentKey]?.author_email
+    ) {
+      return this.config.agent_defaults[primaryAgentKey].author_email!
+    }
+
+    // 3. Global default author_email
+    if (this.config.global_default?.author_email) {
+      return this.config.global_default.author_email
+    }
+
+    // 4. Fallback: human user books themselves
+    return this.config.user_email
   }
 }
