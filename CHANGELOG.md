@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-03-25
+
+### Added
+
+- **`author_email` field** for Worklog Ingest API compatibility (COPSPA-177)
+- Agent-based `author_email` resolution with fallback hierarchy: direct agent → primary agent → global default → user_email
+- `author_email` optional field in `GlobalDefaultConfig` and `AgentDefaultConfig`
+- `authorEmail` field in `CsvEntryData` and `ResolvedTicketInfo`
+- `resolveAuthorEmail()` method in `TicketResolver` (same pattern as `resolveAccountKey()`)
+- CSV column 24: `author_email` (auto-migrated from 23 columns via `ensureHeader()`)
+- Webhook payload field `author_email` for direct Ingest API compatibility
+
+### Technical
+
+- Subagents inherit `author_email` from primary agent (same as `issue_key` and `account_key`)
+- Without configuration, falls back to `user_email` (backward compatible, no breaking changes)
+- `track-time` tool resolves `author_email` from agent/global defaults
+
 ## [1.4.0] - 2026-03-15
 
 ### Added
