@@ -263,6 +263,7 @@ export function createEventHook(
         userEmail: config.user_email,
         ticket: resolved.ticket,
         accountKey: resolved.accountKey,
+        authorEmail: resolved.authorEmail,
         startTime: session.startTime,
         endTime,
         durationSeconds,

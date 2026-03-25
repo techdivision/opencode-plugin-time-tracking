@@ -13,8 +13,8 @@ interface TimeTrackingConfig {
   csv_file: string
   default_account_key: string
   user_email: string
-  agent_defaults?: Record<string, { issue_key?: string; account_key?: string }>
-  global_default?: { issue_key?: string; account_key?: string }
+  agent_defaults?: Record<string, { issue_key?: string; account_key?: string; author_email?: string }>
+  global_default?: { issue_key?: string; account_key?: string; author_email?: string }
 }
 
 interface ProjectConfig {
@@ -411,12 +411,19 @@ export default tool({
       }
     }
 
-    // 6. Build CsvEntryData for WriterService
+    // 6. Resolve author_email with fallback hierarchy
+    const authorEmail =
+      agentDefaults?.author_email ||
+      globalDefault?.author_email ||
+      userEmail
+
+    // 7. Build CsvEntryData for WriterService
     const entryData: CsvEntryData = {
       id: randomUUID(),
       userEmail,
       ticket: issueKey,
       accountKey,
+      authorEmail,
       startTime: toTimestamp(startDate, startTimeFormatted),
       endTime: toTimestamp(endDate, endTimeFormatted),
       durationSeconds,
@@ -434,7 +441,7 @@ export default tool({
       agent: agentName,
     }
 
-    // 7. Initialize writers and write entry
+    // 8. Initialize writers and write entry
     // Build config for CsvWriter (needs csv_file and user_email)
     const writerConfig = {
       csv_file: timeTracking.csv_file,
@@ -460,7 +467,7 @@ export default tool({
       results.push(result)
     }
 
-    // 8. Return confirmation with writer results
+    // 9. Return confirmation with writer results
     const allSucceeded = results.every((r) => r.success)
     const failedWriters = results.filter((r) => !r.success)
 

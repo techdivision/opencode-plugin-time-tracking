@@ -22,10 +22,10 @@ import "../types/Bun"
  * Columns 18-23: Extended format (v0.8.0+) with token details and cost
  */
 const CSV_HEADER =
-  "id,start_date,end_date,user,ticket_name,issue_key,account_key,start_time,end_time,duration_seconds,tokens_used,tokens_remaining,story_points,description,notes,model,agent,tokens_input,tokens_output,tokens_reasoning,tokens_cache_read,tokens_cache_write,cost"
+  "id,start_date,end_date,user,ticket_name,issue_key,account_key,start_time,end_time,duration_seconds,tokens_used,tokens_remaining,story_points,description,notes,model,agent,tokens_input,tokens_output,tokens_reasoning,tokens_cache_read,tokens_cache_write,cost,author_email"
 
 /** Number of columns in the current CSV format */
-const CSV_COLUMN_COUNT = 23
+const CSV_COLUMN_COUNT = 24
 
 /**
  * Checks if a line is a CSV header row.
@@ -258,6 +258,8 @@ export class CsvWriter implements WriterService {
         data.tokenUsage.cacheRead.toString(),
         data.tokenUsage.cacheWrite.toString(),
         data.cost.toFixed(6),
+        // Extended columns (v1.5.0+)
+        data.authorEmail,
       ]
 
       const csvLine = fields.map((f) => `"${f}"`).join(",")

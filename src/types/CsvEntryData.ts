@@ -78,4 +78,17 @@ export interface CsvEntryData {
    * 3. default_account_key from config
    */
   accountKey: string
+
+  /**
+   * Atlassian account email for Tempo worklog attribution.
+   *
+   * @remarks
+   * Determines under whose name the worklog appears in Tempo.
+   * Resolved from (in order of priority):
+   * 1. Direct agent's author_email
+   * 2. Primary agent's author_email (if agent is subagent)
+   * 3. Global default author_email
+   * 4. config.user_email (human user books themselves)
+   */
+  authorEmail: string
 }
