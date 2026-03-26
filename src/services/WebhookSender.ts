@@ -55,7 +55,8 @@ export class WebhookSender implements WriterService {
    * @returns Result indicating success or failure
    *
    * @remarks
-   * The payload structure matches the CSV format with all 23 fields.
+   * The payload contains all required fields with correct types (integer/number/string)
+   * and optional fields only when they have values.
    * If `TT_WEBHOOK_URL` is not set, returns success (skip is not an error).
    * If `TT_WEBHOOK_BEARER_TOKEN` is set, it's included as Bearer token.
    */
@@ -72,31 +73,33 @@ export class WebhookSender implements WriterService {
     const totalTokens =
       data.tokenUsage.input + data.tokenUsage.output + data.tokenUsage.reasoning
 
-    const payload = {
+    // Required fields — always present with correct types
+    const payload: Record<string, unknown> = {
       id: data.id,
       start_date: CsvFormatter.formatDate(data.startTime),
       end_date: CsvFormatter.formatDate(data.endTime),
       user: data.userEmail,
-      ticket_name: "",
+      author_email: data.authorEmail,
       issue_key: data.ticket ?? "",
       account_key: data.accountKey,
       start_time: CsvFormatter.formatTime(data.startTime),
       end_time: CsvFormatter.formatTime(data.endTime),
-      duration_seconds: data.durationSeconds,
-      tokens_used: totalTokens,
-      tokens_remaining: "",
-      story_points: "",
-      description: data.description,
-      notes: data.notes,
-      model: data.model ?? "",
-      agent: data.agent ?? "",
-      tokens_input: data.tokenUsage.input,
-      tokens_output: data.tokenUsage.output,
-      tokens_reasoning: data.tokenUsage.reasoning,
-      tokens_cache_read: data.tokenUsage.cacheRead,
-      tokens_cache_write: data.tokenUsage.cacheWrite,
-      cost: data.cost,
-      author_email: data.authorEmail,
+      duration_seconds: Math.round(data.durationSeconds) || 0,
+      tokens_used: Math.round(totalTokens) || 0,
+      description: data.description || "n/a",
+      model: data.model ?? "unknown",
+      agent: data.agent ?? "unknown",
+      tokens_input: Math.round(data.tokenUsage.input) || 0,
+      tokens_output: Math.round(data.tokenUsage.output) || 0,
+      tokens_reasoning: Math.round(data.tokenUsage.reasoning) || 0,
+      tokens_cache_read: Math.round(data.tokenUsage.cacheRead) || 0,
+      tokens_cache_write: Math.round(data.tokenUsage.cacheWrite) || 0,
+      cost: data.cost ?? 0.0,
+    }
+
+    // Optional fields — only include when values are present
+    if (data.notes) {
+      payload.notes = data.notes
     }
 
     const headers: Record<string, string> = {
