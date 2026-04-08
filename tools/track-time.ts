@@ -312,7 +312,7 @@ export default tool({
       issueKey =
         agentDefaults?.issue_key || globalDefault?.issue_key || null
     }
-    if (issueKey && !/^[A-Z]+-\d+$/.test(issueKey)) {
+    if (issueKey && !/^[A-Z0-9]+-\d+$/.test(issueKey)) {
       throw new Error(
         `Invalid issue_key format: ${issueKey}. Expected format like PROJ-123.`
       )
