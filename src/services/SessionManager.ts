@@ -1,6 +1,11 @@
 /**
  * @fileoverview Session state management for time tracking.
+ *
+ * This is a wrapper around the generic OpenCodeSessionManager from lib-ts-time-tracking.
+ * It provides OpenCode-specific facade to the generic library implementation.
  */
+
+import { OpenCodeSessionManager } from "@techdivision/lib-ts-time-tracking"
 
 import type { ActivityData } from "../types/ActivityData"
 import type { AgentInfo } from "../types/AgentInfo"
@@ -9,7 +14,10 @@ import type { SessionData } from "../types/SessionData"
 import type { TokenUsage } from "../types/TokenUsage"
 
 /**
- * Manages active session state for time tracking.
+ * Wrapper around OpenCodeSessionManager from lib.
+ *
+ * Provides OpenCode-specific facade to the generic library implementation.
+ * All state management is delegated to the library to ensure single source of truth.
  *
  * @remarks
  * Each OpenCode session is tracked separately with its own:
@@ -21,8 +29,8 @@ import type { TokenUsage } from "../types/TokenUsage"
  * Sessions are stored in memory and cleaned up when completed.
  */
 export class SessionManager {
-  /** Map of session ID to session data */
-  private sessions = new Map<string, SessionData>()
+  /** Delegate to lib's generic session manager */
+  private manager = new OpenCodeSessionManager()
 
   /**
    * Retrieves session data by ID.
@@ -31,7 +39,7 @@ export class SessionManager {
    * @returns The session data, or `undefined` if not found
    */
   get(sessionID: string): SessionData | undefined {
-    return this.sessions.get(sessionID)
+    return this.manager.get(sessionID) as SessionData | undefined
   }
 
   /**
@@ -41,7 +49,7 @@ export class SessionManager {
    * @returns `true` if the session exists, `false` otherwise
    */
   has(sessionID: string): boolean {
-    return this.sessions.has(sessionID)
+    return this.manager.has(sessionID)
   }
 
   /**
@@ -52,25 +60,7 @@ export class SessionManager {
    * @returns The newly created session data
    */
   create(sessionID: string, ticket: string | null): SessionData {
-    const session: SessionData = {
-      ticket,
-      startTime: Date.now(),
-      activities: [],
-      tokenUsage: {
-        input: 0,
-        output: 0,
-        reasoning: 0,
-        cacheRead: 0,
-        cacheWrite: 0,
-      },
-      cost: 0,
-      model: null,
-      agent: null,
-    }
-
-    this.sessions.set(sessionID, session)
-
-    return session
+    return this.manager.create(sessionID, ticket) as SessionData
   }
 
   /**
@@ -79,7 +69,7 @@ export class SessionManager {
    * @param sessionID - The OpenCode session identifier
    */
   delete(sessionID: string): void {
-    this.sessions.delete(sessionID)
+    this.manager.delete(sessionID)
   }
 
   /**
@@ -94,13 +84,7 @@ export class SessionManager {
    * after retrieval to ensure it can only be processed once.
    */
   getAndDelete(sessionID: string): SessionData | undefined {
-    const session = this.sessions.get(sessionID)
-
-    if (session) {
-      this.sessions.delete(sessionID)
-    }
-
-    return session
+    return this.manager.getAndDelete(sessionID) as SessionData | undefined
   }
 
   /**
@@ -110,11 +94,7 @@ export class SessionManager {
    * @param activity - The activity data to add
    */
   addActivity(sessionID: string, activity: ActivityData): void {
-    const session = this.sessions.get(sessionID)
-
-    if (session) {
-      session.activities.push(activity)
-    }
+    this.manager.addActivity(sessionID, activity)
   }
 
   /**
@@ -124,15 +104,13 @@ export class SessionManager {
    * @param tokens - The token usage to add
    */
   addTokenUsage(sessionID: string, tokens: TokenUsage): void {
-    const session = this.sessions.get(sessionID)
-
-    if (session) {
-      session.tokenUsage.input += tokens.input
-      session.tokenUsage.output += tokens.output
-      session.tokenUsage.reasoning += tokens.reasoning
-      session.tokenUsage.cacheRead += tokens.cacheRead
-      session.tokenUsage.cacheWrite += tokens.cacheWrite
-    }
+    this.manager.addTokenUsage(sessionID, {
+      input: tokens.input,
+      output: tokens.output,
+      reasoning: tokens.reasoning,
+      cacheRead: tokens.cacheRead,
+      cacheWrite: tokens.cacheWrite,
+    })
   }
 
   /**
@@ -142,11 +120,7 @@ export class SessionManager {
    * @param cost - The cost in USD to add
    */
   addCost(sessionID: string, cost: number): void {
-    const session = this.sessions.get(sessionID)
-
-    if (session) {
-      session.cost += cost
-    }
+    this.manager.addCost(sessionID, cost)
   }
 
   /**
@@ -160,11 +134,7 @@ export class SessionManager {
    * This allows the ticket to be updated when found in later messages.
    */
   updateTicket(sessionID: string, ticket: string | null): void {
-    const session = this.sessions.get(sessionID)
-
-    if (session && ticket) {
-      session.ticket = ticket
-    }
+    this.manager.updateTicket(sessionID, ticket)
   }
 
   /**
@@ -178,11 +148,10 @@ export class SessionManager {
    * The first model detected in a session is used.
    */
   setModel(sessionID: string, model: ModelInfo): void {
-    const session = this.sessions.get(sessionID)
-
-    if (session && !session.model) {
-      session.model = model
-    }
+    this.manager.setModel(sessionID, {
+      providerID: model.providerID,
+      modelID: model.modelID,
+    })
   }
 
   /**
@@ -196,14 +165,6 @@ export class SessionManager {
    * The first agent detected in a session is used (primary agent).
    */
   setAgent(sessionID: string, agentName: string): void {
-    const session = this.sessions.get(sessionID)
-
-    if (session && !session.agent) {
-      const agent: AgentInfo = {
-        name: agentName,
-        timestamp: Date.now(),
-      }
-      session.agent = agent
-    }
+    this.manager.setAgent(sessionID, agentName)
   }
 }

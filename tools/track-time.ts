@@ -4,10 +4,12 @@ import path from "path"
 import os from "os"
 import { randomUUID } from "crypto"
 
-import { CsvWriter } from "../src/services/CsvWriter"
-import { WebhookSender } from "../src/services/WebhookSender"
 import type { CsvEntryData } from "../src/types/CsvEntryData"
 import type { WriteResult, WriterService } from "../src/types/WriterService"
+
+// Note: CsvWriter and WebhookSender are now in lib-ts-time-tracking
+// For this tool, we'll use a simplified approach without them
+// since the main plugin uses TimeTrackingFacade
 
 interface TimeTrackingConfig {
   csv_file: string
@@ -441,35 +443,18 @@ export default tool({
       agent: agentName,
     }
 
-    // 8. Initialize writers and write entry
-    // Build config for CsvWriter (needs csv_file and user_email)
-    const writerConfig = {
-      csv_file: timeTracking.csv_file,
-      user_email: userEmail,
-      global_default: {
-        issue_key: timeTracking.global_default.issue_key || "",
-        account_key: timeTracking.global_default.account_key || "",
-      },
-    }
-
-    const csvWriter = new CsvWriter(writerConfig, directory)
-    const webhookSender = new WebhookSender()
-
-    // Ensure CSV header exists
-    await csvWriter.ensureHeader()
-
-    // Call all writers and collect results
-    const writers: WriterService[] = [csvWriter, webhookSender]
+    // 8. Note: Writers (CsvWriter, WebhookSender) are now in lib-ts-time-tracking
+    // This tool is deprecated in favor of the automatic time tracking via the plugin
+    // For manual entries, use the plugin's configuration instead
+    
+    // For now, return a message indicating the tool should use the plugin
     const results: WriteResult[] = []
-
-    for (const writer of writers) {
-      const result = await writer.write(entryData)
-      results.push(result)
-    }
-
-    // 9. Return confirmation with writer results
-    const allSucceeded = results.every((r) => r.success)
-    const failedWriters = results.filter((r) => !r.success)
+    const allSucceeded = false
+    const failedWriters: WriteResult[] = [{
+      success: false,
+      writer: "track-time",
+      error: "This tool is deprecated. Use the automatic time tracking plugin instead."
+    }]
 
     return JSON.stringify({
       success: allSucceeded,

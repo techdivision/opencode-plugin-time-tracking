@@ -8,18 +8,35 @@
  */
 
 import type { Plugin, Hooks, PluginInput } from "@opencode-ai/plugin"
+import { TimeTrackingFacade } from "@techdivision/lib-ts-time-tracking"
 
 import { ConfigLoader } from "./services/ConfigLoader"
-import { CsvWriter } from "./services/CsvWriter"
 import { SessionManager } from "./services/SessionManager"
 import { TicketExtractor } from "./services/TicketExtractor"
 import { TicketResolver } from "./services/TicketResolver"
-import { TitleGenerator } from "./services/TitleGenerator"
-import { WebhookSender } from "./services/WebhookSender"
 import { createEventHook } from "./hooks/EventHook"
 import { createToolExecuteAfterHook } from "./hooks/ToolExecuteAfterHook"
 
-import type { WriterService } from "./types/WriterService"
+import type { TimeTrackingConfigInterface } from "@techdivision/lib-ts-time-tracking"
+
+/**
+ * Lazy-loads TimeTrackingFacade instance.
+ * Follows Marketplace plugin pattern for single initialization.
+ *
+ * @remarks
+ * The facade is initialized once and reused across all event handlers.
+ * This ensures consistent state management and efficient resource usage.
+ */
+let facadePromise: Promise<TimeTrackingFacade> | null = null
+
+async function getTimeTrackingFacade(
+  config: TimeTrackingConfigInterface
+): Promise<TimeTrackingFacade> {
+  if (!facadePromise) {
+    facadePromise = Promise.resolve(new TimeTrackingFacade(config))
+  }
+  return facadePromise
+}
 
 /**
  * OpenCode Time Tracking Plugin
@@ -64,37 +81,25 @@ export const plugin: Plugin = async ({
   }
 
   const sessionManager = new SessionManager()
-  const csvWriter = new CsvWriter(config, directory)
-  const webhookSender = new WebhookSender()
   const ticketExtractor = new TicketExtractor(client, config.valid_projects)
   const ticketResolver = new TicketResolver(config, ticketExtractor)
-  const configDir = `${directory}/.opencode`
-  const titleGenerator = new TitleGenerator(client, config, configDir)
 
-  // Check API reachability in background (never blocks plugin startup)
-  titleGenerator.checkAvailability().then(() => {
-    if (!titleGenerator.isAvailable) {
-      client.tui.showToast({
-        body: {
-          message: `Title generation: ${titleGenerator.unavailableInfo}`,
-          variant: "warning",
-        },
-      }).catch(() => {})
-    }
-  }).catch(() => {})
-
-  // Writers are called in order: CSV first (backup), then webhook
-  const writers: WriterService[] = [csvWriter, webhookSender]
-
-  // Ensure CSV file has a valid header at startup
-  await csvWriter.ensureHeader()
+  // Writers are now handled by TimeTrackingFacade from lib
+  // No need to instantiate CsvWriter and WebhookSender here
 
   const hooks: Hooks = {
     "tool.execute.after": createToolExecuteAfterHook(
       sessionManager,
       ticketExtractor
     ),
-    event: createEventHook(sessionManager, writers, client, ticketResolver, config, titleGenerator),
+    event: createEventHook(
+      sessionManager,
+      [],
+      client,
+      ticketResolver,
+      config,
+      (timeTrackingConfig) => getTimeTrackingFacade(timeTrackingConfig)
+    ),
   }
 
   return hooks
