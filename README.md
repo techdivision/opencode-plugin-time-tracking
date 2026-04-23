@@ -27,6 +27,20 @@ This architecture eliminates ~870 lines of code duplication and ensures a single
 | Commands | `track-time`, `timesheet`, `booking-proposal`, `sync-calendar`, `sync-drive`, `sync-tempo`, `sync-worklogs`, `init` | Slash commands for time tracking operations |
 | Tools | `track-time`, `cumulate-daily-worklogs`, `sync-tempo-worklog` | Custom tools for CSV writing and worklog sync |
 
+## Dependencies
+
+### lib-ts-time-tracking
+
+This plugin depends on [@techdivision/lib-ts-time-tracking](https://github.com/techdivision/lib-ts-time-tracking) from GitHub. The library is automatically built when installed via npm's `prepare` script.
+
+If you encounter issues with the library not being built, you can manually build it:
+
+```bash
+cd node_modules/@techdivision/lib-ts-time-tracking
+npm install
+npm run build
+```
+
 ## Prerequisites
 
 ### opencode-plugin-shell-env (required)
