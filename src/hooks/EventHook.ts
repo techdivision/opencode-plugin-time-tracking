@@ -3,7 +3,7 @@
  */
 
 import type { AssistantMessage, Event, Message } from "@opencode-ai/sdk"
-import type { TimeTrackingFacade, TimeTrackingConfigInterface } from "@techdivision/lib-ts-time-tracking"
+import type { TimeTrackingFacade, TimeTrackingConfigInterface, WriteResultInterface } from "@techdivision/lib-ts-time-tracking"
 
 import type { SessionManager } from "../services/SessionManager"
 import type { TicketResolver } from "../services/TicketResolver"
@@ -12,7 +12,6 @@ import type { MessagePartUpdatedProperties } from "../types/MessagePartUpdatedPr
 import type { MessageWithParts } from "../types/MessageWithParts"
 import type { OpencodeClient } from "../types/OpencodeClient"
 import type { TimeTrackingConfig } from "../types/TimeTrackingConfig"
-import type { WriteResult, WriterService } from "../types/WriterService"
 
 import { AgentMatcher } from "../utils/AgentMatcher"
 import { SessionDataMapper } from "../adapters/SessionDataMapper"
@@ -28,7 +27,6 @@ interface MessageUpdatedProperties {
  * Creates the event hook for session lifecycle management.
  *
  * @param sessionManager - The session manager instance
- * @param writers - Array of writer services to persist entries (e.g., CsvWriter, WebhookSender)
  * @param client - The OpenCode SDK client
  * @param ticketResolver - The ticket resolver instance
  * @param config - The time tracking configuration
@@ -47,15 +45,13 @@ interface MessageUpdatedProperties {
  *
  * @example
  * ```typescript
- * const writers: WriterService[] = [csvWriter, webhookSender]
  * const hooks: Hooks = {
- *   event: createEventHook(sessionManager, writers, client, ticketResolver, config, getFacade),
+ *   event: createEventHook(sessionManager, client, ticketResolver, config, getFacade),
  * }
  * ```
  */
 export function createEventHook(
   sessionManager: SessionManager,
-  writers: WriterService[],
   client: OpencodeClient,
   ticketResolver: TicketResolver,
   config: TimeTrackingConfig,
@@ -238,10 +234,10 @@ export function createEventHook(
       }
 
       // Writers are called by Facade, but we have access to results
-      const results: WriteResult[] = [
+      const results: WriteResultInterface[] = [
         trackResult.csv,
         trackResult.webhook,
-      ].filter((r) => r !== undefined && r !== null) as WriteResult[]
+      ].filter((r) => r !== undefined && r !== null) as WriteResultInterface[]
 
       // Build combined toast message with writer status
       const durationSeconds = Math.round((Date.now() - session.startTime) / 1000)

@@ -5,7 +5,7 @@ import os from "os"
 import { randomUUID } from "crypto"
 
 import type { CsvEntryData } from "../src/types/CsvEntryData"
-import type { WriteResult, WriterService } from "../src/types/WriterService"
+import type { WriteResultInterface } from "@techdivision/lib-ts-time-tracking"
 
 // Note: CsvWriter and WebhookSender are now in lib-ts-time-tracking
 // For this tool, we'll use a simplified approach without them
@@ -443,18 +443,18 @@ export default tool({
       agent: agentName,
     }
 
-    // 8. Note: Writers (CsvWriter, WebhookSender) are now in lib-ts-time-tracking
-    // This tool is deprecated in favor of the automatic time tracking via the plugin
-    // For manual entries, use the plugin's configuration instead
-    
-    // For now, return a message indicating the tool should use the plugin
-    const results: WriteResult[] = []
-    const allSucceeded = false
-    const failedWriters: WriteResult[] = [{
-      success: false,
-      writer: "track-time",
-      error: "This tool is deprecated. Use the automatic time tracking plugin instead."
-    }]
+     // 8. Note: Writers (CsvWriter, WebhookSender) are now in lib-ts-time-tracking
+     // This tool is deprecated in favor of the automatic time tracking via the plugin
+     // For manual entries, use the plugin's configuration instead
+     
+     // For now, return a message indicating the tool should use the plugin
+     const results: WriteResultInterface[] = []
+     const allSucceeded = false
+     const failedWriters: WriteResultInterface[] = [{
+       success: false,
+       writer: "track-time",
+       error: "This tool is deprecated. Use the automatic time tracking plugin instead."
+     }]
 
     return JSON.stringify({
       success: allSucceeded,

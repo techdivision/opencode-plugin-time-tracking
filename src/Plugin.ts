@@ -94,7 +94,6 @@ export const plugin: Plugin = async ({
     ),
     event: createEventHook(
       sessionManager,
-      [],
       client,
       ticketResolver,
       config,
