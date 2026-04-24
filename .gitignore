@@ -3,3 +3,7 @@ node_modules/
 .DS_Store
 bun.lock
 tmp/
+
+# NPM authentication (GitHub Packages)
+.npmrc
+!.npmrc.example
