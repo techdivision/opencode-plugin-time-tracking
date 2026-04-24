@@ -43,7 +43,8 @@ export function resolveSummaryConfig(
   config: TimeTrackingJsonConfig
 ): SessionSummaryConfigInterface | undefined {
   // Prefer new 'summary' field over deprecated 'title_generation'
-  let summaryConfig = config.summary || (config as any).title_generation
+  // Use (config as any) to bypass TypeScript type checking and ?? for nullish coalescing
+  let summaryConfig = (config as any).summary ?? (config as any).title_generation
 
   if (!summaryConfig) {
     return undefined
