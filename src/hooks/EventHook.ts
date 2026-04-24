@@ -185,43 +185,47 @@ export function createEventHook(
       // Resolve summary config with backward compatibility (summary or title_generation)
       const summaryConfig = resolveSummaryConfig(config)
 
+      // Build lib config with pricing from opencode-project.json
+      // Fallback to defaults if not configured
+      const defaultPricing = {
+        default: {
+          input: 0.003,
+          output: 0.015,
+          cache_read: 0.00075,
+          cache_write: 0.00375,
+        },
+        periods: [
+          {
+            from: "2024-01-01",
+            models: {
+              "claude-opus": {
+                input: 0.015,
+                output: 0.075,
+                cache_read: 0.00375,
+                cache_write: 0.01875,
+              },
+              "claude-sonnet": {
+                input: 0.003,
+                output: 0.015,
+                cache_read: 0.00075,
+                cache_write: 0.00375,
+              },
+              "claude-haiku": {
+                input: 0.00080,
+                output: 0.004,
+                cache_read: 0.0002,
+                cache_write: 0.001,
+              },
+            },
+          },
+        ],
+      }
+
       const libConfig: TimeTrackingConfigInterface = {
         defaults: config.global_default,
         agents: config.agent_defaults,
         csv: { output_path: config.csv_file },
-        pricing: {
-          default: {
-            input: 0.003,
-            output: 0.015,
-            cache_read: 0.00075,
-            cache_write: 0.00375,
-          },
-          periods: [
-            {
-              from: "2024-01-01",
-              models: {
-                "claude-opus": {
-                  input: 0.015,
-                  output: 0.075,
-                  cache_read: 0.00375,
-                  cache_write: 0.01875,
-                },
-                "claude-sonnet": {
-                  input: 0.003,
-                  output: 0.015,
-                  cache_read: 0.00075,
-                  cache_write: 0.00375,
-                },
-                "claude-haiku": {
-                  input: 0.00080,
-                  output: 0.004,
-                  cache_read: 0.0002,
-                  cache_write: 0.001,
-                },
-              },
-            },
-          ],
-        },
+        pricing: (config as any).pricing || defaultPricing,
         valid_projects: config.valid_projects || [],
         ...(summaryConfig && { summary: summaryConfig }),
       }
@@ -249,9 +253,9 @@ export function createEventHook(
       const durationSeconds = Math.round((Date.now() - session.startTime) / 1000)
       const minutes = Math.round(durationSeconds / 60)
       const totalTokens =
-        session.tokenUsage.input +
-        session.tokenUsage.output +
-        session.tokenUsage.reasoning
+        (session.tokenUsage.input ?? 0) +
+        (session.tokenUsage.output ?? 0) +
+        (session.tokenUsage.reasoning ?? 0)
       const failedWriters = results.filter((r) => !r.success)
 
       let message = `Time tracked: ${minutes} min, ${totalTokens} tokens${resolved.ticket ? ` for ${resolved.ticket}` : ""}`

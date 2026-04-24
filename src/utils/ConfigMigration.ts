@@ -43,15 +43,24 @@ export function resolveSummaryConfig(
   config: TimeTrackingJsonConfig
 ): SessionSummaryConfigInterface | undefined {
   // Prefer new 'summary' field over deprecated 'title_generation'
-  if (config.summary) {
-    return config.summary
+  let summaryConfig = config.summary || (config as any).title_generation
+
+  if (!summaryConfig) {
+    return undefined
   }
 
-  // Fall back to deprecated 'title_generation' for backward compatibility
-  if ((config as any).title_generation) {
-    return (config as any).title_generation
+  // Check if explicitly disabled
+  if (summaryConfig.enabled === false) {
+    return undefined
   }
 
-  // Neither field is present
-  return undefined
+  // Validate required fields for LLM summary generation
+  if (!summaryConfig.model || !summaryConfig.api_url) {
+    console.warn(
+      "[TimeTracking] Summary config incomplete: model and api_url are required for LLM summary generation. Summary generation disabled."
+    )
+    return undefined
+  }
+
+  return summaryConfig
 }
