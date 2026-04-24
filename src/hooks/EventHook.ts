@@ -178,6 +178,7 @@ export function createEventHook(
       // This replaces separate TitleGenerator and DescriptionGenerator calls
       const sessionData = SessionDataMapper.build(session, client, sessionID, {
         userEmail: config.user_email,
+        ticket: resolved.ticket,
       })
 
       // Convert plugin's TimeTrackingConfig to lib's TimeTrackingConfigInterface

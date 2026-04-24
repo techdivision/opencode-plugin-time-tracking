@@ -28,19 +28,22 @@ export class SessionDataMapper {
    * @param session - The OpenCode session data
    * @param client - The OpenCode SDK client for fetching conversation context
    * @param sessionID - The session ID for fetching messages
-   * @param config - Configuration including user email
+   * @param config - Configuration including user email and resolved ticket
    * @returns SessionDataInterface ready for TimeTrackingFacade.track()
    *
    * @remarks
    * The conversationContextProvider is built inline and will gracefully
    * degrade if the SDK call fails. The lib's SessionSummaryGenerator
    * will use activity-based fallback in that case.
+   *
+   * The ticket parameter allows passing a pre-resolved ticket key
+   * (from TicketResolver) to ensure the LLM includes it in the description.
    */
   static build(
     session: SessionData,
     client: OpencodeClient,
     sessionID: string,
-    config: { userEmail?: string }
+    config: { userEmail?: string; ticket?: string | null }
   ): SessionDataInterface {
     // Format model as "provider/modelID"
     const modelString = session.model
@@ -87,7 +90,7 @@ export class SessionDataMapper {
       },
       activities: session.activities,
       conversationContext: conversationContextProvider,
-      ticket: session.ticket ?? undefined,
+      ticket: config.ticket ?? session.ticket ?? undefined,
     }
   }
 }
