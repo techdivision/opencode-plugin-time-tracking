@@ -15,6 +15,7 @@ import type { TimeTrackingConfig } from "../types/TimeTrackingConfig"
 
 import { AgentMatcher } from "../utils/AgentMatcher"
 import { SessionDataMapper } from "../adapters/SessionDataMapper"
+import { resolveSummaryConfig } from "../utils/ConfigMigration"
 
 /**
  * Properties for message.updated events.
@@ -180,6 +181,9 @@ export function createEventHook(
       })
 
       // Convert plugin's TimeTrackingConfig to lib's TimeTrackingConfigInterface
+      // Resolve summary config with backward compatibility (summary or title_generation)
+      const summaryConfig = resolveSummaryConfig(config)
+
       const libConfig: TimeTrackingConfigInterface = {
         defaults: config.global_default,
         agents: config.agent_defaults,
@@ -218,6 +222,7 @@ export function createEventHook(
           ],
         },
         valid_projects: config.valid_projects || [],
+        ...(summaryConfig && { summary: summaryConfig }),
       }
 
       const facade = await getTimeTrackingFacade(libConfig)
