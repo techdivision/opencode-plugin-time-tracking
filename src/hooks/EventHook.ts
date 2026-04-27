@@ -16,6 +16,7 @@ import type { TimeTrackingConfig } from "../types/TimeTrackingConfig"
 import { AgentMatcher } from "../utils/AgentMatcher"
 import { SessionDataMapper } from "../adapters/SessionDataMapper"
 import { resolveSummaryConfig } from "../utils/ConfigMigration"
+import { resolveEnvVarsInObject } from "../utils/EnvResolver"
 
 /**
  * Properties for message.updated events.
@@ -184,8 +185,14 @@ export function createEventHook(
       // Convert plugin's TimeTrackingConfig to lib's TimeTrackingConfigInterface
       // Resolve summary config with backward compatibility (summary or title_generation)
       console.log("[EventHook] config object:", JSON.stringify(config, null, 2))
-      const summaryConfig = resolveSummaryConfig(config)
-      console.log("[EventHook] summaryConfig result:", summaryConfig)
+      let summaryConfig = resolveSummaryConfig(config)
+      console.log("[EventHook] summaryConfig result (before env resolution):", summaryConfig)
+      
+      // Resolve environment variables in summaryConfig (e.g., {env:TT_AGENT_API_KEY})
+      if (summaryConfig) {
+        summaryConfig = resolveEnvVarsInObject(summaryConfig)
+        console.log("[EventHook] summaryConfig result (after env resolution):", summaryConfig)
+      }
 
       // Build lib config with pricing from opencode-project.json
       // Fallback to defaults if not configured
