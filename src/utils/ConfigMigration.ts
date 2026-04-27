@@ -46,6 +46,11 @@ export function resolveSummaryConfig(
   // Use (config as any) to bypass TypeScript type checking and ?? for nullish coalescing
   let summaryConfig = (config as any).summary ?? (config as any).title_generation
 
+  console.log("[ConfigMigration] resolveSummaryConfig called with config keys:", Object.keys(config as any))
+  console.log("[ConfigMigration] summary field:", (config as any).summary ? "present" : "missing")
+  console.log("[ConfigMigration] title_generation field:", (config as any).title_generation ? "present" : "missing")
+  console.log("[ConfigMigration] resolved summaryConfig:", summaryConfig ? "found" : "not found")
+
   if (!summaryConfig) {
     return undefined
   }
