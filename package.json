@@ -14,7 +14,13 @@
     "scripts/",
     "plugin.json"
   ],
-  "keywords": ["opencode", "plugin", "time-tracking", "jira", "tempo"],
+  "keywords": [
+    "opencode",
+    "plugin",
+    "time-tracking",
+    "jira",
+    "tempo"
+  ],
   "opencode": {
     "plugin": true,
     "category": "standard"
@@ -27,7 +33,7 @@
   "license": "MIT",
   "dependencies": {
     "@opencode-ai/plugin": "1.2.15",
-    "@techdivision/lib-ts-time-tracking": "^4.2.0"
+    "@techdivision/lib-ts-time-tracking": "file:../lib-ts-time-tracking"
   },
   "devDependencies": {
     "@types/bun": "latest",
