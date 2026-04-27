@@ -15,6 +15,7 @@ import type { TimeTrackingConfig } from "../types/TimeTrackingConfig"
 
 import { AgentMatcher } from "../utils/AgentMatcher"
 import { SessionDataMapper } from "../adapters/SessionDataMapper"
+import { resolveEnvVarsInObject } from "../utils/EnvResolver"
 
 /**
  * Properties for message.updated events.
@@ -227,8 +228,9 @@ export function createEventHook(
         pricing: (config as any).pricing || defaultPricing,
         valid_projects: config.valid_projects || [],
         // Pass both summary and title_generation to lib - lib will handle the mapping
-        ...(config.summary && { summary: config.summary }),
-        ...((config as any).title_generation && { title_generation: (config as any).title_generation }),
+        // Resolve environment variables in config values (e.g., {env:TT_AGENT_API_KEY})
+        ...(config.summary && { summary: resolveEnvVarsInObject(config.summary) }),
+        ...((config as any).title_generation && { title_generation: resolveEnvVarsInObject((config as any).title_generation) }),
       }
 
       const facade = await getTimeTrackingFacade(libConfig)
