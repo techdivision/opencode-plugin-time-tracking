@@ -183,7 +183,9 @@ export function createEventHook(
 
       // Convert plugin's TimeTrackingConfig to lib's TimeTrackingConfigInterface
       // Resolve summary config with backward compatibility (summary or title_generation)
+      console.log("[EventHook] config object:", JSON.stringify(config, null, 2))
       const summaryConfig = resolveSummaryConfig(config)
+      console.log("[EventHook] summaryConfig result:", summaryConfig)
 
       // Build lib config with pricing from opencode-project.json
       // Fallback to defaults if not configured
