@@ -233,8 +233,13 @@ export function createEventHook(
         ...((config as any).title_generation && { title_generation: resolveEnvVarsInObject((config as any).title_generation) }),
       }
 
+      console.log("[EventHook] libConfig.summary:", JSON.stringify(libConfig.summary, null, 2))
+      console.log("[EventHook] libConfig.title_generation:", JSON.stringify(libConfig.title_generation, null, 2))
+
       const facade = await getTimeTrackingFacade(libConfig)
+      console.log("[EventHook] facade created, calling track()")
       const trackResult = await facade.track(sessionData)
+      console.log("[EventHook] trackResult.summary:", JSON.stringify(trackResult.summary, null, 2))
       const description = trackResult.summary.description
 
       // Build entry data from trackResult.entry (CSV entry comes directly from Lib!)
