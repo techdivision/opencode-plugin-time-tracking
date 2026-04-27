@@ -8,6 +8,7 @@ import type {
   OpencodeProjectConfig,
   TimeTrackingConfig,
 } from "../types/TimeTrackingConfig"
+import { resolveEnvVarsInObject } from "../utils/EnvResolver"
 
 import "../types/Bun"
 
@@ -55,13 +56,16 @@ export class ConfigLoader {
         if (projectConfig.time_tracking) {
           const jsonConfig = projectConfig.time_tracking
 
+          // Resolve environment variables in config (e.g., {env:TT_AGENT_API_KEY})
+          const resolvedConfig = resolveEnvVarsInObject(jsonConfig)
+
           // Resolve user_email with fallback chain:
           // 1. Environment variable (loaded by opencode-plugin-shell-env from .env)
           // 2. System username
           const userEmail = process.env[ENV_USER_EMAIL] || userInfo().username
 
           return {
-            ...jsonConfig,
+            ...resolvedConfig,
             user_email: userEmail,
           }
         }
