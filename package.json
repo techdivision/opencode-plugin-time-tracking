@@ -32,8 +32,8 @@
   "author": "TechDivision GmbH",
   "license": "MIT",
   "dependencies": {
-    "@opencode-ai/plugin": "1.2.15",
-    "@techdivision/lib-ts-time-tracking": "file:../lib-ts-time-tracking"
+    "@opencode-ai/plugin": "^1.14",
+    "@techdivision/lib-ts-time-tracking": "github:techdivision/lib-ts-time-tracking#main"
   },
   "devDependencies": {
     "@types/bun": "latest",
