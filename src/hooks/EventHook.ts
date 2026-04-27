@@ -15,7 +15,6 @@ import type { TimeTrackingConfig } from "../types/TimeTrackingConfig"
 
 import { AgentMatcher } from "../utils/AgentMatcher"
 import { SessionDataMapper } from "../adapters/SessionDataMapper"
-import { resolveSummaryConfig } from "../utils/ConfigMigration"
 
 /**
  * Properties for message.updated events.
@@ -182,10 +181,8 @@ export function createEventHook(
       })
 
       // Convert plugin's TimeTrackingConfig to lib's TimeTrackingConfigInterface
-      // Resolve summary config with backward compatibility (summary or title_generation)
+      // Note: Don't resolve summary config here - let the lib handle both summary and title_generation
       console.log("[EventHook] config object:", JSON.stringify(config, null, 2))
-      const summaryConfig = resolveSummaryConfig(config)
-      console.log("[EventHook] summaryConfig result:", summaryConfig)
 
       // Build lib config with pricing from opencode-project.json
       // Fallback to defaults if not configured
@@ -223,13 +220,15 @@ export function createEventHook(
         ],
       }
 
-      const libConfig: TimeTrackingConfigInterface = {
+      const libConfig: TimeTrackingConfigInterface & { title_generation?: any } = {
         defaults: config.global_default,
         agents: config.agent_defaults,
         csv: { output_path: config.csv_file },
         pricing: (config as any).pricing || defaultPricing,
         valid_projects: config.valid_projects || [],
-        ...(summaryConfig && { summary: summaryConfig }),
+        // Pass both summary and title_generation to lib - lib will handle the mapping
+        ...(config.summary && { summary: config.summary }),
+        ...((config as any).title_generation && { title_generation: (config as any).title_generation }),
       }
 
       const facade = await getTimeTrackingFacade(libConfig)
