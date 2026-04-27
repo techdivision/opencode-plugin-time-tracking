@@ -33,7 +33,7 @@
   "license": "MIT",
   "dependencies": {
     "@opencode-ai/plugin": "^1.14",
-    "@techdivision/lib-ts-time-tracking": "github:techdivision/lib-ts-time-tracking#main"
+    "@techdivision/lib-ts-time-tracking": "github:techdivision/lib-ts-time-tracking#copspa-489"
   },
   "devDependencies": {
     "@types/bun": "latest",
