@@ -2,7 +2,7 @@
   "name": "time-tracking",
   "description": "Automatic time tracking plugin for OpenCode. Tracks session duration and tool usage, writing entries to a CSV file compatible with Jira worklog sync incl. commands, skills and agents.",
   "category": "standard",
-  "version": "1.5.1",
+  "version": "2.0.0",
   "hooks": {
     "postlink": "scripts/postlink.js"
   }
