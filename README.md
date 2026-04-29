@@ -2,6 +2,21 @@
 
 Automatic time tracking plugin for OpenCode. Tracks session duration and tool usage, writing entries to a CSV file compatible with Jira worklog sync incl. commands, skills and agents.
 
+## Architecture
+
+This plugin now uses [@techdivision/lib-ts-time-tracking](https://github.com/techdivision/lib-ts-time-tracking) for core time tracking functionality:
+
+- **SessionSummaryGenerator:** Generates descriptions via LLM or activity fallback
+- **TimeTrackingFacade:** Orchestrates summary generation, CSV writing, and webhook sending
+- **OpenCodeSessionManager:** Manages session state across multiple OpenCode events
+
+The plugin provides OpenCode-specific adapters:
+- **SessionDataMapper:** Converts OpenCode session data to lib's interface
+- **TicketResolver:** SDK-based JIRA ticket extraction
+- **SessionManager:** Wrapper around lib's OpenCodeSessionManager for OpenCode-specific features
+
+This architecture eliminates ~870 lines of code duplication and ensures a single source of truth for time tracking logic.
+
 ## Overview
 
 | Content Type | Name | Description |
@@ -11,6 +26,20 @@ Automatic time tracking plugin for OpenCode. Tracks session duration and tool us
 | Agents | `time-tracking`, `booking-proposal`, `calendar-sync`, `drive-sync`, `tempo-sync`, `worklog` | Specialized agents for tracking and sync tasks |
 | Commands | `track-time`, `timesheet`, `booking-proposal`, `sync-calendar`, `sync-drive`, `sync-tempo`, `sync-worklogs`, `init` | Slash commands for time tracking operations |
 | Tools | `track-time`, `cumulate-daily-worklogs`, `sync-tempo-worklog` | Custom tools for CSV writing and worklog sync |
+
+## Dependencies
+
+### lib-ts-time-tracking
+
+This plugin depends on [@techdivision/lib-ts-time-tracking](https://github.com/techdivision/lib-ts-time-tracking) from GitHub. The library is automatically built when installed via npm's `prepare` script.
+
+If you encounter issues with the library not being built, you can manually build it:
+
+```bash
+cd node_modules/@techdivision/lib-ts-time-tracking
+npm install
+npm run build
+```
 
 ## Prerequisites
 

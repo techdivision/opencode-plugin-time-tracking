@@ -4,7 +4,7 @@
 
 import type { AgentDefaultConfig } from "./AgentDefaultConfig"
 import type { GlobalDefaultConfig } from "./GlobalDefaultConfig"
-import type { TitleGenerationConfig } from "./TitleGenerationConfig"
+import type { SessionSummaryConfigInterface } from "@techdivision/lib-ts-time-tracking"
 
 /**
  * Time tracking configuration as stored in `.opencode/opencode-project.json`.
@@ -64,13 +64,25 @@ export interface TimeTrackingJsonConfig {
   valid_projects?: string[]
 
   /**
-   * LLM-based title generation configuration.
+   * LLM-based session summary configuration.
    *
    * @remarks
-   * When not set or partially configured, smart defaults are used
-   * and title generation is enabled. Set `enabled: false` to disable.
+   * Configures automatic generation of worklog descriptions via LLM.
+   * This is the new field name (replaces deprecated `title_generation`).
+   * Both `summary` and `title_generation` are supported for backward compatibility.
+   *
+   * @see {@link SessionSummaryConfigInterface} -- Configuration interface from lib
    */
-  title_generation?: TitleGenerationConfig
+  summary?: SessionSummaryConfigInterface
+
+  /**
+   * @deprecated Use `summary` instead. This field is kept for backward compatibility.
+   *
+   * @remarks
+   * Old field name for LLM-based title generation.
+   * If both `summary` and `title_generation` are present, `summary` takes precedence.
+   */
+  title_generation?: SessionSummaryConfigInterface
 }
 
 /**

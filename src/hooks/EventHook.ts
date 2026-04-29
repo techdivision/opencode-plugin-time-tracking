@@ -2,22 +2,20 @@
  * @fileoverview Event hook for session lifecycle and token tracking.
  */
 
-import { randomUUID } from "crypto"
-
 import type { AssistantMessage, Event, Message } from "@opencode-ai/sdk"
+import type { TimeTrackingFacade, TimeTrackingConfigInterface, WriteResultInterface } from "@techdivision/lib-ts-time-tracking"
 
 import type { SessionManager } from "../services/SessionManager"
 import type { TicketResolver } from "../services/TicketResolver"
-import type { TitleGenerator } from "../services/TitleGenerator"
 import type { CsvEntryData } from "../types/CsvEntryData"
 import type { MessagePartUpdatedProperties } from "../types/MessagePartUpdatedProperties"
 import type { MessageWithParts } from "../types/MessageWithParts"
 import type { OpencodeClient } from "../types/OpencodeClient"
 import type { TimeTrackingConfig } from "../types/TimeTrackingConfig"
-import type { WriteResult, WriterService } from "../types/WriterService"
 
 import { AgentMatcher } from "../utils/AgentMatcher"
-import { DescriptionGenerator } from "../utils/DescriptionGenerator"
+import { SessionDataMapper } from "../adapters/SessionDataMapper"
+import { resolveEnvVarsInObject } from "../utils/EnvResolver"
 
 /**
  * Properties for message.updated events.
@@ -27,53 +25,13 @@ interface MessageUpdatedProperties {
 }
 
 /**
- * Extracts the summary title from the last user message.
- *
- * @param client - The OpenCode SDK client
- * @param sessionID - The session identifier
- * @returns The summary title, or `null` if not found
- *
- * @internal
- */
-async function extractSummaryTitle(
-  client: OpencodeClient,
-  sessionID: string
-): Promise<string | null> {
-  try {
-    const result = await client.session.messages({
-      path: { id: sessionID },
-    } as Parameters<typeof client.session.messages>[0])
-
-    if (!result.data) {
-      return null
-    }
-
-    const messages = result.data as MessageWithParts[]
-
-    // Find the last user message with a summary title
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i]
-
-      if (message.info.role === "user" && message.info.summary?.title) {
-        return message.info.summary.title
-      }
-    }
-
-    return null
-  } catch {
-    return null
-  }
-}
-
-/**
  * Creates the event hook for session lifecycle management.
  *
  * @param sessionManager - The session manager instance
- * @param writers - Array of writer services to persist entries (e.g., CsvWriter, WebhookSender)
  * @param client - The OpenCode SDK client
  * @param ticketResolver - The ticket resolver instance
  * @param config - The time tracking configuration
- * @param titleGenerator - The LLM-based title generator instance
+ * @param getTimeTrackingFacade - Function to get the TimeTrackingFacade instance (lazy-loaded)
  * @returns The event hook function
  *
  * @remarks
@@ -81,26 +39,24 @@ async function extractSummaryTitle(
  *
  * 1. **message.updated** - Tracks model from assistant messages
  * 2. **message.part.updated** - Tracks token usage from step-finish parts
- * 3. **session.status** (idle) - Finalizes and exports the session via all writers
+ * 3. **session.status** (idle) - Finalizes and exports the session via TimeTrackingFacade
  *
- * Writers are called in order. Each writer handles its own errors internally,
- * so a failure in one writer does not affect others.
+ * The TimeTrackingFacade handles summary generation, CSV writing, and webhook sending.
+ * This replaces the previous manual orchestration of TitleGenerator and DescriptionGenerator.
  *
  * @example
  * ```typescript
- * const writers: WriterService[] = [csvWriter, webhookSender]
  * const hooks: Hooks = {
- *   event: createEventHook(sessionManager, writers, client, ticketResolver, config, titleGenerator),
+ *   event: createEventHook(sessionManager, client, ticketResolver, config, getFacade),
  * }
  * ```
  */
 export function createEventHook(
   sessionManager: SessionManager,
-  writers: WriterService[],
   client: OpencodeClient,
   ticketResolver: TicketResolver,
   config: TimeTrackingConfig,
-  titleGenerator: TitleGenerator
+  getTimeTrackingFacade: (cfg: TimeTrackingConfigInterface) => Promise<TimeTrackingFacade>
 ) {
   return async ({ event }: { event: Event }): Promise<void> => {
     // Track model and agent from assistant messages
@@ -194,45 +150,6 @@ export function createEventHook(
         return
       }
 
-      const endTime = Date.now()
-      const durationSeconds = Math.round((endTime - session.startTime) / 1000)
-
-      // Generate description: LLM title + activity summary
-      const activitySummary = DescriptionGenerator.generate(session.activities)
-
-      // Try to get a meaningful title via LLM or OpenCode summary
-      let title = await extractSummaryTitle(client, sessionID)
-
-      if (!title) {
-        try {
-          title = await Promise.race([
-            titleGenerator.generate(sessionID),
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
-          ])
-        } catch {
-          title = null
-        }
-      }
-
-      // Combine: "LLM title | activity summary" or just "activity summary"
-      const description = title
-        ? `${title} | ${activitySummary}`
-        : activitySummary
-
-      const toolSummary = DescriptionGenerator.generateToolSummary(
-        session.activities
-      )
-
-      const totalTokens =
-        session.tokenUsage.input +
-        session.tokenUsage.output +
-        session.tokenUsage.reasoning
-
-      // Format model as providerID/modelID
-      const modelString = session.model
-        ? `${session.model.providerID}/${session.model.modelID}`
-        : null
-
       // Get agent name if available
       const agentString = session.agent?.name ?? null
 
@@ -257,40 +174,105 @@ export function createEventHook(
       // Resolve ticket and account key with fallback hierarchy
       const resolved = await ticketResolver.resolve(sessionID, agentString)
 
-      // Build entry data once, shared across all writers
-      const entryData: CsvEntryData = {
-        id: randomUUID(),
+      // Use TimeTrackingFacade from lib for summary generation and writing
+      // This replaces separate TitleGenerator and DescriptionGenerator calls
+      const sessionData = SessionDataMapper.build(session, client, sessionID, {
         userEmail: config.user_email,
         ticket: resolved.ticket,
+      })
+
+      // Convert plugin's TimeTrackingConfig to lib's TimeTrackingConfigInterface
+      // Note: Don't resolve summary config here - let the lib handle both summary and title_generation
+      // Build lib config with pricing from opencode-project.json
+      // Fallback to defaults if not configured
+      const defaultPricing = {
+        default: {
+          input: 0.003,
+          output: 0.015,
+          cache_read: 0.00075,
+          cache_write: 0.00375,
+        },
+        periods: [
+          {
+            from: "2024-01-01",
+            models: {
+              "claude-opus": {
+                input: 0.015,
+                output: 0.075,
+                cache_read: 0.00375,
+                cache_write: 0.01875,
+              },
+              "claude-sonnet": {
+                input: 0.003,
+                output: 0.015,
+                cache_read: 0.00075,
+                cache_write: 0.00375,
+              },
+              "claude-haiku": {
+                input: 0.00080,
+                output: 0.004,
+                cache_read: 0.0002,
+                cache_write: 0.001,
+              },
+            },
+          },
+        ],
+      }
+
+      // Build webhook config from environment variables (if available)
+      const webhookConfig = process.env.TT_WEBHOOK_URL
+        ? {
+            url: process.env.TT_WEBHOOK_URL,
+            bearer_token: process.env.TT_WEBHOOK_BEARER_TOKEN,
+          }
+        : undefined
+
+      const libConfig: TimeTrackingConfigInterface & { title_generation?: any } = {
+        defaults: config.global_default,
+        agents: config.agent_defaults,
+        csv: { output_path: config.csv_file },
+        pricing: (config as any).pricing || defaultPricing,
+        valid_projects: config.valid_projects || [],
+        // Pass both summary and title_generation to lib - lib will handle the mapping
+        // Resolve environment variables in config values (e.g., {env:TT_AGENT_API_KEY})
+        ...(config.summary && { summary: resolveEnvVarsInObject(config.summary) }),
+        ...((config as any).title_generation && { title_generation: resolveEnvVarsInObject((config as any).title_generation) }),
+        // Pass webhook config to lib (read from environment variables)
+        ...(webhookConfig && { webhook: webhookConfig }),
+      }
+
+      const facade = await getTimeTrackingFacade(libConfig)
+      const trackResult = await facade.track(sessionData)
+      const description = trackResult.summary.description
+
+      // Build entry data from trackResult.entry (CSV entry comes directly from Lib!)
+      const entryData: CsvEntryData = {
+        ...trackResult.entry,
+        ticket: resolved.ticket, // OpenCode Resolving override
         accountKey: resolved.accountKey,
-        authorEmail: resolved.authorEmail,
-        startTime: session.startTime,
-        endTime,
-        durationSeconds,
-        description,
-        notes: `Auto-tracked: ${toolSummary}`,
-        tokenUsage: session.tokenUsage,
-        cost: session.cost,
-        model: modelString,
+        authorEmail: resolved.authorEmail, // OpenCode Resolving override
         agent: (resolved.primaryAgent ?? agentString)?.replace(/^@/, "") ?? null,
       }
 
-      // Call all writers in order (CSV first, then webhook, etc.)
-      // Collect results for combined status reporting
-      const results: WriteResult[] = []
-      for (const writer of writers) {
-        const result = await writer.write(entryData)
-        results.push(result)
-      }
+      // Writers are called by Facade, but we have access to results
+      const results: WriteResultInterface[] = [
+        trackResult.csv,
+        trackResult.webhook,
+      ].filter((r) => r !== undefined && r !== null) as WriteResultInterface[]
 
       // Build combined toast message with writer status
+      const durationSeconds = Math.round((Date.now() - session.startTime) / 1000)
       const minutes = Math.round(durationSeconds / 60)
+      const totalTokens =
+        (session.tokenUsage.input ?? 0) +
+        (session.tokenUsage.output ?? 0) +
+        (session.tokenUsage.reasoning ?? 0)
       const failedWriters = results.filter((r) => !r.success)
 
       let message = `Time tracked: ${minutes} min, ${totalTokens} tokens${resolved.ticket ? ` for ${resolved.ticket}` : ""}`
 
-      if (!titleGenerator.isAvailable) {
-        message += " (title generation NOT available)"
+      if (trackResult.summary.llmError) {
+        message += ` (LLM: ${trackResult.summary.llmError})`
       }
 
       if (failedWriters.length > 0) {

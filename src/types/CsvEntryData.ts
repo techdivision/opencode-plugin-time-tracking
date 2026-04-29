@@ -8,14 +8,14 @@ import type { TokenUsage } from "./TokenUsage"
  * Data structure for a single CSV worklog entry.
  */
 export interface CsvEntryData {
-  /**
-   * Unique identifier for this entry (UUID v4).
-   *
-   * @remarks
-   * Generated once and shared across all WriterService implementations
-   * to ensure consistent identification across CSV, webhook, etc.
-   */
-  id: string
+   /**
+    * Unique identifier for this entry (UUID v4).
+    *
+    * @remarks
+    * Generated once and shared across all writers (CSV, webhook, etc.)
+    * to ensure consistent identification.
+    */
+   id: string
 
   /**
    * User email for the worklog.
