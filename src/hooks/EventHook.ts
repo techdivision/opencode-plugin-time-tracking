@@ -183,8 +183,6 @@ export function createEventHook(
 
       // Convert plugin's TimeTrackingConfig to lib's TimeTrackingConfigInterface
       // Note: Don't resolve summary config here - let the lib handle both summary and title_generation
-      console.log("[EventHook] config object:", JSON.stringify(config, null, 2))
-
       // Build lib config with pricing from opencode-project.json
       // Fallback to defaults if not configured
       const defaultPricing = {
@@ -221,6 +219,14 @@ export function createEventHook(
         ],
       }
 
+      // Build webhook config from environment variables (if available)
+      const webhookConfig = process.env.TT_WEBHOOK_URL
+        ? {
+            url: process.env.TT_WEBHOOK_URL,
+            bearer_token: process.env.TT_WEBHOOK_BEARER_TOKEN,
+          }
+        : undefined
+
       const libConfig: TimeTrackingConfigInterface & { title_generation?: any } = {
         defaults: config.global_default,
         agents: config.agent_defaults,
@@ -231,15 +237,12 @@ export function createEventHook(
         // Resolve environment variables in config values (e.g., {env:TT_AGENT_API_KEY})
         ...(config.summary && { summary: resolveEnvVarsInObject(config.summary) }),
         ...((config as any).title_generation && { title_generation: resolveEnvVarsInObject((config as any).title_generation) }),
+        // Pass webhook config to lib (read from environment variables)
+        ...(webhookConfig && { webhook: webhookConfig }),
       }
 
-      console.log("[EventHook] libConfig.summary:", JSON.stringify(libConfig.summary, null, 2))
-      console.log("[EventHook] libConfig.title_generation:", JSON.stringify(libConfig.title_generation, null, 2))
-
       const facade = await getTimeTrackingFacade(libConfig)
-      console.log("[EventHook] facade created, calling track()")
       const trackResult = await facade.track(sessionData)
-      console.log("[EventHook] trackResult.summary:", JSON.stringify(trackResult.summary, null, 2))
       const description = trackResult.summary.description
 
       // Build entry data from trackResult.entry (CSV entry comes directly from Lib!)
